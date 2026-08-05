@@ -1,0 +1,11 @@
+[package]
+name = "fallout4-terminal-hacking"
+version = "0.1.0"
+authors = ["Skulhunter5"]
+license = "MIT"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+rand = "0.10.2"
+ratatui = "0.30.2"
