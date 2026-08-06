@@ -16,7 +16,7 @@ struct CursorPosition {
 #[derive(Debug)]
 pub struct MainWidget {
     first_offset: usize,
-    content: Vec<Vec<String>>,
+    content: Vec<String>,
     cursor: CursorPosition,
 }
 
@@ -29,21 +29,22 @@ impl Default for MainWidget {
 impl MainWidget {
     pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
     pub const WIDTH: u16 = Self::BLOCK_WIDTH * 2 + Self::SPACING;
-    pub const HEIGHT: u16 = Self::ROWS as u16;
+    pub const HEIGHT: u16 = Self::ROWS_PER_BLOCK as u16;
     const BLOCK_WIDTH: u16 = Self::OFFSET_WIDTH + Self::SPACING + Self::COLUMNS_PER_BLOCK as u16;
-    const BLOCK_SIZE: Size = Size::new(Self::BLOCK_WIDTH, Self::ROWS as u16);
+    const BLOCK_SIZE: Size = Size::new(Self::BLOCK_WIDTH, Self::ROWS_PER_BLOCK as u16);
     const OFFSET_WIDTH: u16 = 6;
 
     const SPACING: u16 = 1;
 
-    pub const ROWS: usize = 17;
+    pub const ROWS_PER_BLOCK: usize = 17;
     pub const COLUMNS_PER_BLOCK: usize = 12;
     pub const BLOCKS: usize = 2;
 
     pub const MAX_OFFSET: usize = 0xFFFF;
     pub const POSSIBLE_OFFSET_COUNT: usize = Self::MAX_OFFSET / Self::COLUMNS_PER_BLOCK;
-    pub const SHOWN_OFFSET_COUNT: usize = Self::ROWS * Self::BLOCKS;
-    pub const TOTAL_OFFSET_LENGTH: usize = Self::ROWS * Self::COLUMNS_PER_BLOCK * Self::BLOCKS;
+    pub const SHOWN_OFFSET_COUNT: usize = Self::ROWS_PER_BLOCK * Self::BLOCKS;
+    pub const TOTAL_OFFSET_LENGTH: usize =
+        Self::ROWS_PER_BLOCK * Self::COLUMNS_PER_BLOCK * Self::BLOCKS;
     pub const MAX_FIRST_OFFSET: usize = Self::POSSIBLE_OFFSET_COUNT - Self::SHOWN_OFFSET_COUNT;
 
     const _ASSERTION: () = const {
@@ -59,12 +60,10 @@ impl MainWidget {
     }
 
     // TODO: generate some actual content
-    fn random_content(rng: &mut impl Rng) -> Vec<Vec<String>> {
-        let mut content = (0..Self::BLOCKS)
-            .map(|_| Vec::with_capacity(Self::ROWS))
-            .collect::<Vec<_>>();
-        for block_content in &mut content {
-            for _ in 0..Self::ROWS {
+    fn random_content(rng: &mut impl Rng) -> Vec<String> {
+        let mut content = Vec::with_capacity(Self::ROWS_PER_BLOCK * Self::BLOCKS);
+        for _ in 0..Self::BLOCKS {
+            for _ in 0..Self::ROWS_PER_BLOCK {
                 const LETTERS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
                 let mut row = String::new();
                 for _ in 0..Self::COLUMNS_PER_BLOCK {
@@ -75,7 +74,7 @@ impl MainWidget {
                             .unwrap(),
                     );
                 }
-                block_content.push(row);
+                content.push(row);
             }
         }
 
@@ -150,7 +149,11 @@ impl Widget for &MainWidget {
                 format!("0x{:04X}", row_offset).render(row_area, buf);
             }
 
-            let block = &self.content[block_index];
+            let block = {
+                let block_start = block_index * MainWidget::ROWS_PER_BLOCK;
+                let block_end = block_start + MainWidget::ROWS_PER_BLOCK;
+                &self.content[block_start..block_end]
+            };
             let content_area = block_area
                 .resize(Size::new(
                     MainWidget::COLUMNS_PER_BLOCK as u16,
