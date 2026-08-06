@@ -11,6 +11,8 @@ mod app;
 mod main_widget;
 mod right_widget;
 mod top_widget;
+#[allow(unused)]
+mod wordlists;
 
 fn main() -> Result<()> {
     let mut terminal = ratatui::init();
