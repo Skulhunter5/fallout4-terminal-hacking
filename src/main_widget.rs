@@ -2,13 +2,22 @@ use rand::{Rng, RngExt};
 use ratatui::{
     buffer::Buffer,
     layout::{Offset, Rect, Size},
+    style::Style,
     widgets::Widget,
 };
+
+#[derive(Debug, Default)]
+struct CursorPosition {
+    block: usize,
+    row: usize,
+    column: usize,
+}
 
 #[derive(Debug)]
 pub struct MainWidget {
     first_offset: usize,
-    // TODO: store content
+    content: Vec<Vec<String>>,
+    cursor: CursorPosition,
 }
 
 impl Default for MainWidget {
@@ -19,11 +28,13 @@ impl Default for MainWidget {
 
 impl MainWidget {
     pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
-    pub const WIDTH: u16 = Self::BLOCK_WIDTH * 2 + 1;
+    pub const WIDTH: u16 = Self::BLOCK_WIDTH * 2 + Self::SPACING;
     pub const HEIGHT: u16 = Self::ROWS as u16;
-    const BLOCK_WIDTH: u16 = Self::OFFSET_WIDTH + 1 + Self::COLUMNS_PER_BLOCK as u16;
+    const BLOCK_WIDTH: u16 = Self::OFFSET_WIDTH + Self::SPACING + Self::COLUMNS_PER_BLOCK as u16;
     const BLOCK_SIZE: Size = Size::new(Self::BLOCK_WIDTH, Self::ROWS as u16);
     const OFFSET_WIDTH: u16 = 6;
+
+    const SPACING: u16 = 1;
 
     pub const ROWS: usize = 17;
     pub const COLUMNS_PER_BLOCK: usize = 12;
@@ -47,13 +58,41 @@ impl MainWidget {
         rng.random_range(0..Self::MAX_FIRST_OFFSET) * Self::COLUMNS_PER_BLOCK
     }
 
+    // TODO: generate some actual content
+    fn random_content(rng: &mut impl Rng) -> Vec<Vec<String>> {
+        let mut content = (0..Self::BLOCKS)
+            .map(|_| Vec::with_capacity(Self::ROWS))
+            .collect::<Vec<_>>();
+        for block_content in &mut content {
+            for _ in 0..Self::ROWS {
+                const LETTERS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                let mut row = String::new();
+                for _ in 0..Self::COLUMNS_PER_BLOCK {
+                    row.push(
+                        LETTERS
+                            .chars()
+                            .nth(rng.random_range(0..LETTERS.len()))
+                            .unwrap(),
+                    );
+                }
+                block_content.push(row);
+            }
+        }
+
+        content
+    }
+
     pub fn new_random() -> Self {
         let mut rng = rand::rng();
 
         let first_offset = Self::random_first_offset(&mut rng);
-        // TODO: generate content
+        let content = Self::random_content(&mut rng);
 
-        Self { first_offset }
+        Self {
+            first_offset,
+            content,
+            cursor: CursorPosition::default(),
+        }
     }
 }
 
@@ -65,20 +104,48 @@ impl Widget for &MainWidget {
             (0, area.resize(MainWidget::BLOCK_SIZE)),
             (
                 1,
-                area.resize(MainWidget::BLOCK_SIZE)
-                    .offset(Offset::new(MainWidget::BLOCK_SIZE.width as i32, 0)),
+                area.resize(MainWidget::BLOCK_SIZE).offset(Offset::new(
+                    MainWidget::BLOCK_SIZE.width as i32 + MainWidget::SPACING as i32,
+                    0,
+                )),
             ),
         ];
-        for (_block_index, block_area) in blocks {
+        for (block_index, block_area) in blocks {
             let offset_area =
                 block_area.resize(Size::new(MainWidget::OFFSET_WIDTH, block_area.height));
-            (0..MainWidget::ROWS)
-                .zip(offset_area.rows())
-                .for_each(|(row_index, row_area)| {
-                    let row_offset = self.first_offset + row_index * MainWidget::COLUMNS_PER_BLOCK;
-                    format!("0x{:04x}", row_offset).render(row_area, buf);
-                });
-            // TODO: render content
+            for (row_index, row_area) in offset_area.rows().enumerate() {
+                let row_offset = self.first_offset + row_index * MainWidget::COLUMNS_PER_BLOCK;
+                format!("0x{:04X}", row_offset).render(row_area, buf);
+            }
+
+            let block = &self.content[block_index];
+            let content_area = block_area
+                .resize(Size::new(
+                    MainWidget::COLUMNS_PER_BLOCK as u16,
+                    block_area.height,
+                ))
+                .offset(Offset::new(
+                    MainWidget::OFFSET_WIDTH as i32 + MainWidget::SPACING as i32,
+                    0,
+                ));
+            for (row_index, row_area) in content_area.rows().enumerate() {
+                assert_eq!(row_area.width, MainWidget::COLUMNS_PER_BLOCK as u16);
+                assert_eq!(
+                    block[row_index].chars().count(),
+                    MainWidget::COLUMNS_PER_BLOCK
+                );
+                block[row_index].as_str().render(row_area, buf);
+            }
+
+            if self.cursor.block == block_index {
+                buf.set_style(
+                    content_area.resize(Size::new(1, 1)).offset(Offset::new(
+                        self.cursor.column as i32,
+                        self.cursor.row as i32,
+                    )),
+                    Style::new().reversed(),
+                );
+            }
         }
     }
 }

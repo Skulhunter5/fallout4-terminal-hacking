@@ -36,6 +36,9 @@ impl App {
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
+        // TODO: add logic
+        // > move cursor (mouse (+ arrow keys?))
+        // > click on element
         if let Event::Key(key_event) = crossterm::event::read()? {
             self.handle_key_event(key_event);
         }
