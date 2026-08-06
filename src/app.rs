@@ -8,6 +8,7 @@ use ratatui::{
         event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind},
     },
     layout::{Constraint, Offset, Position, Rect, Size},
+    style::{Color, Style},
     text::Text,
     widgets::{Block, BorderType, Widget},
 };
@@ -168,6 +169,8 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        buf.set_style(area, Style::new().fg(Color::Green));
+
         let Some((border_area, top_area, main_area, right_area)) = self.widget_areas else {
             let warning_text = Text::raw(format!(
                 "terminal too small\n(is {}x{}, needs {}x{})",
