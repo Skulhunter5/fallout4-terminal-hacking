@@ -5,7 +5,7 @@ use ratatui::{
     buffer::Buffer,
     crossterm::{
         self,
-        event::{Event, KeyCode, KeyEvent},
+        event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind},
     },
     layout::{Constraint, Offset, Position, Rect, Size},
     text::Text,
@@ -14,16 +14,59 @@ use ratatui::{
 
 use crate::{main_widget::MainWidget, right_widget::RightWidget, top_widget::TopWidget};
 
-#[derive(Debug, Default)]
+const TOP_WIDTH: u16 = TERMINAL_WIDTH;
+const TOP_HEIGHT: u16 = 4;
+const RIGHT_WIDTH: u16 = 1 + "Entry denied.".len() as u16;
+const RIGHT_HEIGHT: u16 = MainWidget::HEIGHT;
+const TERMINAL_WIDTH: u16 = MainWidget::WIDTH + 1 + RIGHT_WIDTH;
+const TERMINAL_HEIGHT: u16 = MainWidget::HEIGHT + 1 + TOP_HEIGHT;
+const SPACING: u16 = 1;
+
+const TOP_POS: Position = Position::new(0, 0);
+const TOP_SIZE: Size = Size::new(TOP_WIDTH, TOP_HEIGHT);
+const MAIN_POS: Position = Position {
+    x: TOP_POS.x,
+    y: TOP_POS.y + TOP_HEIGHT + SPACING,
+};
+const RIGHT_POS: Position = Position {
+    x: MAIN_POS.x + MainWidget::WIDTH + SPACING,
+    y: MAIN_POS.y,
+};
+const RIGHT_SIZE: Size = Size::new(RIGHT_WIDTH, RIGHT_HEIGHT);
+
+const fn p2o(position: Position) -> Offset {
+    Offset::new(position.x as i32, position.y as i32)
+}
+
+#[derive(Debug)]
 pub struct App {
     should_exit: bool,
     top_widget: TopWidget,
     right_widget: RightWidget,
     main_widget: MainWidget,
+    widget_areas: Option<(Option<Rect>, Rect, Rect, Rect)>,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            should_exit: false,
+            top_widget: TopWidget::default(),
+            right_widget: RightWidget,
+            main_widget: MainWidget::default(),
+            widget_areas: None,
+        }
+    }
 }
 
 impl App {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        let Size {
+            width: columns,
+            height: rows,
+        } = terminal.size()?;
+        self.resize(columns, rows);
+
         while !self.should_exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
@@ -36,66 +79,60 @@ impl App {
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
-        // TODO: add logic
-        // > move cursor (mouse (+ arrow keys?))
-        // > click on element
-        if let Event::Key(key_event) = crossterm::event::read()? {
-            self.handle_key_event(key_event);
+        match crossterm::event::read()? {
+            Event::Key(key_event) => self.handle_key_event(key_event),
+            Event::Mouse(mouse_event) => self.handle_mouse_event(mouse_event),
+            Event::Resize(columns, rows) => self.resize(columns, rows),
+            _ => (),
         }
         Ok(())
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
+        // TODO: add controls for keyboard
+        // > move cursor with arrow keys
+        // > click on selected element with KeyCode::Char('e')
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             _ => (),
         }
     }
 
-    fn exit(&mut self) {
-        self.should_exit = true;
-    }
-}
-
-impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        const TOP_WIDTH: u16 = TERMINAL_WIDTH;
-        const TOP_HEIGHT: u16 = 4;
-        const RIGHT_WIDTH: u16 = 1 + "Entry denied.".len() as u16;
-        const RIGHT_HEIGHT: u16 = MainWidget::HEIGHT;
-        const TERMINAL_WIDTH: u16 = MainWidget::WIDTH + 1 + RIGHT_WIDTH;
-        const TERMINAL_HEIGHT: u16 = MainWidget::HEIGHT + 1 + TOP_HEIGHT;
-        const SPACING: u16 = 1;
-
-        const TOP_POS: Position = Position::new(0, 0);
-        const TOP_SIZE: Size = Size::new(TOP_WIDTH, TOP_HEIGHT);
-        const MAIN_POS: Position = Position {
-            x: TOP_POS.x,
-            y: TOP_POS.y + TOP_HEIGHT + SPACING,
-        };
-        const RIGHT_POS: Position = Position {
-            x: MAIN_POS.x + MainWidget::WIDTH + SPACING,
-            y: MAIN_POS.y,
-        };
-        const RIGHT_SIZE: Size = Size::new(RIGHT_WIDTH, RIGHT_HEIGHT);
-
-        const fn p2o(position: Position) -> Offset {
-            Offset::new(position.x as i32, position.y as i32)
+    fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
+        match mouse_event.kind {
+            MouseEventKind::Moved => {
+                let Some((_, _, main_area, _)) = &self.widget_areas else {
+                    return;
+                };
+                let column = mouse_event.column;
+                let row = mouse_event.row;
+                if !main_area.contains(Position::new(column, row)) {
+                    return;
+                }
+                self.main_widget
+                    .move_cursor(Position::new(column - main_area.x, row - main_area.y));
+            }
+            MouseEventKind::Down(_mouse_button) => {
+                // TODO: click on element
+            }
+            _ => (),
         }
+    }
+
+    fn resize(&mut self, columns: u16, rows: u16) {
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: columns,
+            height: rows,
+        };
 
         if area.width < TERMINAL_WIDTH || area.height < TERMINAL_HEIGHT {
-            let warning_text = Text::raw(format!(
-                "terminal too small\n(is {}x{}, needs {}x{})",
-                area.width, area.height, TERMINAL_WIDTH, TERMINAL_HEIGHT
-            ))
-            .centered();
-            let warning_area =
-                area.centered_vertically(Constraint::Length(warning_text.height() as u16));
-            warning_text.render(warning_area, buf);
+            self.widget_areas = None;
             return;
         }
 
-        let terminal_area =
+        let (border_area, terminal_area) =
             if area.width >= TERMINAL_WIDTH + 4 && area.height >= TERMINAL_HEIGHT + 2 {
                 let border_area = area.centered(
                     Constraint::Length(TERMINAL_WIDTH + 4),
@@ -103,12 +140,14 @@ impl Widget for &App {
                 );
                 let block = Block::bordered().border_type(BorderType::Rounded);
                 let terminal_area = block.inner(border_area);
-                block.render(border_area, buf);
-                terminal_area.offset(Offset::new(1, 0))
+                (Some(border_area), terminal_area.offset(Offset::new(1, 0)))
             } else {
-                area.centered(
-                    Constraint::Length(TERMINAL_WIDTH),
-                    Constraint::Length(TERMINAL_HEIGHT),
+                (
+                    None,
+                    area.centered(
+                        Constraint::Length(TERMINAL_WIDTH),
+                        Constraint::Length(TERMINAL_HEIGHT),
+                    ),
                 )
             };
 
@@ -118,6 +157,33 @@ impl Widget for &App {
         assert_eq!(top_area.as_size(), TOP_SIZE);
         assert_eq!(main_area.as_size(), MainWidget::SIZE);
         assert_eq!(right_area.as_size(), RIGHT_SIZE);
+
+        self.widget_areas = Some((border_area, top_area, main_area, right_area));
+    }
+
+    fn exit(&mut self) {
+        self.should_exit = true;
+    }
+}
+
+impl Widget for &App {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let Some((border_area, top_area, main_area, right_area)) = self.widget_areas else {
+            let warning_text = Text::raw(format!(
+                "terminal too small\n(is {}x{}, needs {}x{})",
+                area.width, area.height, TERMINAL_WIDTH, TERMINAL_HEIGHT
+            ))
+            .centered();
+            let warning_area =
+                area.centered_vertically(Constraint::Length(warning_text.height() as u16));
+            warning_text.render(warning_area, buf);
+            return;
+        };
+
+        if let Some(border_area) = border_area {
+            let block = Block::bordered().border_type(BorderType::Rounded);
+            block.render(border_area, buf);
+        }
 
         self.top_widget.render(top_area, buf);
         self.main_widget.render(main_area, buf);

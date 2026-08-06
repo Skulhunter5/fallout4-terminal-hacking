@@ -1,7 +1,7 @@
 use rand::{Rng, RngExt};
 use ratatui::{
     buffer::Buffer,
-    layout::{Offset, Rect, Size},
+    layout::{Offset, Position, Rect, Size},
     style::Style,
     widgets::Widget,
 };
@@ -9,8 +9,8 @@ use ratatui::{
 #[derive(Debug, Default)]
 struct CursorPosition {
     block: usize,
-    row: usize,
     column: usize,
+    row: usize,
 }
 
 #[derive(Debug)]
@@ -94,23 +94,55 @@ impl MainWidget {
             cursor: CursorPosition::default(),
         }
     }
+
+    pub fn move_cursor(&mut self, position: Position) {
+        let area = Rect::new(0, 0, Self::SIZE.width, Self::SIZE.height);
+
+        let blocks = vec![
+            area.resize(MainWidget::BLOCK_SIZE),
+            area.resize(MainWidget::BLOCK_SIZE).offset(Offset::new(
+                MainWidget::BLOCK_SIZE.width as i32 + MainWidget::SPACING as i32,
+                0,
+            )),
+        ];
+        for (block_index, block_area) in blocks.into_iter().enumerate() {
+            let content_area = block_area
+                .resize(Size::new(
+                    MainWidget::COLUMNS_PER_BLOCK as u16,
+                    block_area.height,
+                ))
+                .offset(Offset::new(
+                    MainWidget::OFFSET_WIDTH as i32 + MainWidget::SPACING as i32,
+                    0,
+                ));
+            if !content_area.contains(position) {
+                continue;
+            }
+            let projected_position = position.offset(Offset::new(
+                -(content_area.x as i32),
+                -(content_area.y as i32),
+            ));
+            self.cursor = CursorPosition {
+                block: block_index,
+                column: projected_position.x as usize,
+                row: projected_position.y as usize,
+            };
+        }
+    }
 }
 
 impl Widget for &MainWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
         assert_eq!(area.as_size(), MainWidget::SIZE);
 
-        let blocks: Vec<(usize, Rect)> = vec![
-            (0, area.resize(MainWidget::BLOCK_SIZE)),
-            (
-                1,
-                area.resize(MainWidget::BLOCK_SIZE).offset(Offset::new(
-                    MainWidget::BLOCK_SIZE.width as i32 + MainWidget::SPACING as i32,
-                    0,
-                )),
-            ),
+        let blocks = vec![
+            area.resize(MainWidget::BLOCK_SIZE),
+            area.resize(MainWidget::BLOCK_SIZE).offset(Offset::new(
+                MainWidget::BLOCK_SIZE.width as i32 + MainWidget::SPACING as i32,
+                0,
+            )),
         ];
-        for (block_index, block_area) in blocks {
+        for (block_index, block_area) in blocks.into_iter().enumerate() {
             let offset_area =
                 block_area.resize(Size::new(MainWidget::OFFSET_WIDTH, block_area.height));
             for (row_index, row_area) in offset_area.rows().enumerate() {
