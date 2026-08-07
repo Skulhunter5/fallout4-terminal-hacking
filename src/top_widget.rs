@@ -21,11 +21,7 @@ impl Widget for &TopWidget {
         assert_eq!(lines.len(), 4);
 
         self.head_line.as_str().render(lines[0], buf);
-        if self.remaining_attempts == 1 {
-            "!!! WARNING: LOCKOUT IMMINENT !!!".render(lines[1], buf);
-        } else {
-            "Password Required".render(lines[1], buf);
-        }
+        "Password Required".render(lines[1], buf);
         let attempts_string = std::iter::repeat_n("■", self.remaining_attempts)
             .collect::<Vec<_>>()
             .join(" ");
