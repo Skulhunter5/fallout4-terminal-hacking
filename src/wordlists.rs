@@ -1,7 +1,7 @@
 include!(concat!(env!("OUT_DIR"), "/wordlists.rs"));
 
-pub fn by_letter_count(letter_count: usize) -> Option<&'static [&'static str]> {
+pub fn by_word_length(length: usize) -> Option<&'static [&'static str]> {
     WORDLISTS
         .iter()
-        .find_map(|(count, wordlist)| (*count == letter_count).then_some(*wordlist))
+        .find_map(|(word_length, wordlist)| (*word_length == length).then_some(*wordlist))
 }

@@ -6,11 +6,44 @@ use ratatui::{
     widgets::Widget,
 };
 
-#[derive(Debug, Default)]
+use crate::wordlists;
+
+#[derive(Debug, Clone, Copy, Default)]
 struct CursorPosition {
     block: usize,
     column: usize,
     row: usize,
+}
+
+impl CursorPosition {
+    fn from_index(index: usize) -> Self {
+        let block = index / MainWidget::CHARACTERS_PER_BLOCK;
+        let block_rem = index % MainWidget::CHARACTERS_PER_BLOCK;
+        let row = block_rem / MainWidget::CHARACTERS_PER_ROW;
+        let row_rem = block_rem % MainWidget::CHARACTERS_PER_ROW;
+        let column = row_rem;
+        Self { block, column, row }
+    }
+
+    fn next_row(&self) -> Self {
+        let mut next: Self = *self;
+
+        next.column = 0;
+        next.row += 1;
+        if next.row >= MainWidget::ROWS_PER_BLOCK {
+            next.row = 0;
+            next.block += 1;
+            if next.block >= MainWidget::BLOCKS {
+                panic!("trying to advance CursorPosition beyond the last character");
+            }
+        }
+
+        next
+    }
+
+    fn row_index(&self) -> usize {
+        self.block * MainWidget::ROWS_PER_BLOCK + self.row
+    }
 }
 
 #[derive(Debug)]
@@ -18,6 +51,7 @@ pub struct MainWidget {
     first_offset: usize,
     content: Vec<String>,
     cursor: CursorPosition,
+    words: Vec<(String, usize)>,
 }
 
 impl Default for MainWidget {
@@ -47,6 +81,10 @@ impl MainWidget {
         Self::ROWS_PER_BLOCK * Self::COLUMNS_PER_BLOCK * Self::BLOCKS;
     pub const MAX_FIRST_OFFSET: usize = Self::POSSIBLE_OFFSET_COUNT - Self::SHOWN_OFFSET_COUNT;
 
+    const CHARACTERS_PER_ROW: usize = Self::COLUMNS_PER_BLOCK;
+    const CHARACTERS_PER_BLOCK: usize = Self::CHARACTERS_PER_ROW * Self::ROWS_PER_BLOCK;
+    const CHARACTERS_TOTAL: usize = Self::CHARACTERS_PER_BLOCK * Self::BLOCKS;
+
     const _ASSERTION: () = const {
         assert!(
             (Self::MAX_FIRST_OFFSET * Self::COLUMNS_PER_BLOCK)
@@ -59,18 +97,38 @@ impl MainWidget {
         rng.random_range(0..Self::MAX_FIRST_OFFSET) * Self::COLUMNS_PER_BLOCK
     }
 
-    // TODO: generate some actual content
-    fn random_content(rng: &mut impl Rng) -> Vec<String> {
+    fn random_unique_words(rng: &mut impl Rng, word_length: usize, count: usize) -> Vec<String> {
+        let mut words: Vec<&'static str> = Vec::with_capacity(count);
+        let Some(wordlist) = wordlists::by_word_length(word_length) else {
+            panic!("valid word length should've been ensured before calling this function");
+        };
+        while words.len() < count {
+            let word = wordlist[rng.random_range(0..wordlist.len())];
+            if !words.contains(&word) {
+                words.push(word);
+            }
+        }
+
+        words
+            .iter()
+            .map(|word| word.to_uppercase())
+            .collect::<Vec<_>>()
+    }
+
+    fn random_content(rng: &mut impl Rng) -> (Vec<String>, Vec<(String, usize)>) {
+        const WORD_LENGTH: usize = 4;
+        const WORD_COUNT: usize = 10;
+
         let mut content = Vec::with_capacity(Self::ROWS_PER_BLOCK * Self::BLOCKS);
         for _ in 0..Self::BLOCKS {
             for _ in 0..Self::ROWS_PER_BLOCK {
-                const LETTERS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                const BACKGROUND_CHARACTERS: &str = ";$@:!%+_?/,.\"'-\\#*<>()[]{}^=`";
                 let mut row = String::new();
                 for _ in 0..Self::COLUMNS_PER_BLOCK {
                     row.push(
-                        LETTERS
+                        BACKGROUND_CHARACTERS
                             .chars()
-                            .nth(rng.random_range(0..LETTERS.len()))
+                            .nth(rng.random_range(0..BACKGROUND_CHARACTERS.len()))
                             .unwrap(),
                     );
                 }
@@ -78,19 +136,64 @@ impl MainWidget {
             }
         }
 
-        content
+        let words = Self::random_unique_words(rng, WORD_LENGTH, WORD_COUNT);
+
+        let mut word_positions = Vec::with_capacity(words.len());
+        for _ in 0..words.len() {
+            'outer: loop {
+                let new_position =
+                    rng.random_range(0..(MainWidget::CHARACTERS_TOTAL - WORD_LENGTH));
+                'inner: for position in &word_positions {
+                    if new_position + WORD_LENGTH < *position
+                        || position + WORD_LENGTH < new_position
+                    {
+                        continue 'inner;
+                    } else {
+                        continue 'outer;
+                    }
+                }
+                word_positions.push(new_position);
+                break;
+            }
+        }
+
+        let words = words.into_iter().zip(word_positions).collect::<Vec<_>>();
+
+        for (word, position) in &words {
+            let mut remaining_word = &word[..];
+            let mut cursor = CursorPosition::from_index(*position);
+            while remaining_word.len() > MainWidget::CHARACTERS_PER_ROW - cursor.column {
+                let row = &mut content[cursor.row_index()];
+                row.truncate(cursor.column);
+                let (part, rem) =
+                    remaining_word.split_at(MainWidget::CHARACTERS_PER_ROW - cursor.column);
+                row.push_str(part);
+                remaining_word = rem;
+
+                cursor = cursor.next_row();
+            }
+            let row = &content[cursor.row_index()];
+            let mut new_row = String::with_capacity(row.len());
+            new_row.push_str(&row[..cursor.column]);
+            new_row.push_str(remaining_word);
+            new_row.push_str(&row[(cursor.column + remaining_word.len())..]);
+            content[cursor.row_index()] = new_row;
+        }
+
+        (content, words)
     }
 
     pub fn new_random() -> Self {
         let mut rng = rand::rng();
 
         let first_offset = Self::random_first_offset(&mut rng);
-        let content = Self::random_content(&mut rng);
+        let (content, words) = Self::random_content(&mut rng);
 
         Self {
             first_offset,
             content,
             cursor: CursorPosition::default(),
+            words,
         }
     }
 
@@ -182,5 +285,8 @@ impl Widget for &MainWidget {
                 );
             }
         }
+
+        // TODO: draw cursor with variable size, according to content under cursor
+        let _words = &self.words;
     }
 }
