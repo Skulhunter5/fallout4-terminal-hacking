@@ -50,11 +50,16 @@ pub struct App {
 
 impl Default for App {
     fn default() -> Self {
+        let top_widget = TopWidget::default();
+        let main_widget = MainWidget::default();
+        let mut right_widget = RightWidget::default();
+        right_widget.set_selected_string(main_widget.get_highlighted_string());
+
         Self {
             should_exit: false,
-            top_widget: TopWidget::default(),
-            right_widget: RightWidget,
-            main_widget: MainWidget::default(),
+            top_widget,
+            right_widget,
+            main_widget,
             widget_areas: None,
         }
     }
@@ -95,6 +100,12 @@ impl App {
         // > click on selected element with KeyCode::Char('e')
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
+            KeyCode::Char('e') => {
+                let _click_result = self.main_widget.click();
+                // TODO: handle click result
+                // -> adjust top_widget.remaining_attempts
+                // -> add to right_widget's history
+            }
             _ => (),
         }
     }
@@ -112,6 +123,8 @@ impl App {
                 }
                 self.main_widget
                     .move_cursor(Position::new(column - main_area.x, row - main_area.y));
+                self.right_widget
+                    .set_selected_string(self.main_widget.get_highlighted_string());
             }
             MouseEventKind::Down(_mouse_button) => {
                 // TODO: click on element

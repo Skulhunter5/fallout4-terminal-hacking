@@ -59,6 +59,18 @@ pub enum CursorHighlight {
 }
 
 #[derive(Debug)]
+pub struct ClickResult {
+    pub kind: ClickResultKind,
+    pub string: String,
+}
+
+#[derive(Debug)]
+pub enum ClickResultKind {
+    Char,
+    Word,
+}
+
+#[derive(Debug)]
 pub struct MainWidget {
     first_offset: usize,
     content: Vec<String>,
@@ -249,6 +261,28 @@ impl MainWidget {
         self.fix_cursor_highlight();
     }
 
+    pub fn get_highlighted_string(&self) -> String {
+        match self.highlight {
+            CursorHighlight::Char(position) => self.content[self.cursor.row]
+                .chars()
+                .nth(position % Self::CHARACTERS_PER_ROW)
+                .unwrap()
+                .to_string(),
+            CursorHighlight::Word {
+                start_index,
+                length,
+            } => self
+                .words
+                .iter()
+                .find_map(|(word, word_position)| {
+                    (start_index >= *word_position && start_index < word_position + length)
+                        .then_some(word)
+                })
+                .unwrap()
+                .clone(),
+        }
+    }
+
     fn fix_cursor_highlight(&mut self) {
         let cursor_index = self.cursor.index();
         self.highlight = match self.words.iter().find(|(word, position)| {
@@ -261,6 +295,10 @@ impl MainWidget {
             },
             None => CursorHighlight::Char(cursor_index),
         };
+    }
+
+    pub fn click(&mut self) -> ClickResult {
+        todo!();
     }
 }
 
