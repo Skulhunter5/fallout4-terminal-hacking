@@ -41,9 +41,21 @@ impl CursorPosition {
         next
     }
 
+    fn index(&self) -> usize {
+        self.block * MainWidget::CHARACTERS_PER_BLOCK
+            + self.row * MainWidget::CHARACTERS_PER_ROW
+            + self.column
+    }
+
     fn row_index(&self) -> usize {
         self.block * MainWidget::ROWS_PER_BLOCK + self.row
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CursorHighlight {
+    Char(usize),
+    Word { start_index: usize, length: usize },
 }
 
 #[derive(Debug)]
@@ -51,6 +63,7 @@ pub struct MainWidget {
     first_offset: usize,
     content: Vec<String>,
     cursor: CursorPosition,
+    highlight: CursorHighlight,
     words: Vec<(String, usize)>,
 }
 
@@ -189,32 +202,34 @@ impl MainWidget {
         let first_offset = Self::random_first_offset(&mut rng);
         let (content, words) = Self::random_content(&mut rng);
 
-        Self {
+        let mut s = Self {
             first_offset,
             content,
             cursor: CursorPosition::default(),
+            highlight: CursorHighlight::Char(0),
             words,
-        }
+        };
+
+        s.fix_cursor_highlight();
+
+        s
     }
 
     pub fn move_cursor(&mut self, position: Position) {
         let area = Rect::new(0, 0, Self::SIZE.width, Self::SIZE.height);
 
         let blocks = vec![
-            area.resize(MainWidget::BLOCK_SIZE),
-            area.resize(MainWidget::BLOCK_SIZE).offset(Offset::new(
-                MainWidget::BLOCK_SIZE.width as i32 + MainWidget::SPACING as i32,
+            area.resize(Self::BLOCK_SIZE),
+            area.resize(Self::BLOCK_SIZE).offset(Offset::new(
+                Self::BLOCK_SIZE.width as i32 + Self::SPACING as i32,
                 0,
             )),
         ];
         for (block_index, block_area) in blocks.into_iter().enumerate() {
             let content_area = block_area
-                .resize(Size::new(
-                    MainWidget::COLUMNS_PER_BLOCK as u16,
-                    block_area.height,
-                ))
+                .resize(Size::new(Self::COLUMNS_PER_BLOCK as u16, block_area.height))
                 .offset(Offset::new(
-                    MainWidget::OFFSET_WIDTH as i32 + MainWidget::SPACING as i32,
+                    Self::OFFSET_WIDTH as i32 + Self::SPACING as i32,
                     0,
                 ));
             if !content_area.contains(position) {
@@ -230,6 +245,22 @@ impl MainWidget {
                 row: projected_position.y as usize,
             };
         }
+
+        self.fix_cursor_highlight();
+    }
+
+    fn fix_cursor_highlight(&mut self) {
+        let cursor_index = self.cursor.index();
+        self.highlight = match self.words.iter().find(|(word, position)| {
+            let end = position + word.len();
+            cursor_index >= *position && cursor_index < end
+        }) {
+            Some((word, position)) => CursorHighlight::Word {
+                start_index: *position,
+                length: word.len(),
+            },
+            None => CursorHighlight::Char(cursor_index),
+        };
     }
 }
 
@@ -244,6 +275,15 @@ impl Widget for &MainWidget {
                 0,
             )),
         ];
+
+        let highlight = match self.highlight {
+            CursorHighlight::Char(index) => index..index + 1,
+            CursorHighlight::Word {
+                start_index,
+                length,
+            } => start_index..start_index + length,
+        };
+
         for (block_index, block_area) in blocks.into_iter().enumerate() {
             let offset_area =
                 block_area.resize(Size::new(MainWidget::OFFSET_WIDTH, block_area.height));
@@ -275,18 +315,18 @@ impl Widget for &MainWidget {
                 block[row_index].as_str().render(row_area, buf);
             }
 
-            if self.cursor.block == block_index {
+            for index in highlight.clone() {
+                let position = CursorPosition::from_index(index);
+                if position.block != block_index {
+                    continue;
+                }
                 buf.set_style(
-                    content_area.resize(Size::new(1, 1)).offset(Offset::new(
-                        self.cursor.column as i32,
-                        self.cursor.row as i32,
-                    )),
+                    content_area
+                        .resize(Size::new(1, 1))
+                        .offset(Offset::new(position.column as i32, position.row as i32)),
                     Style::new().reversed(),
                 );
             }
         }
-
-        // TODO: draw cursor with variable size, according to content under cursor
-        let _words = &self.words;
     }
 }
