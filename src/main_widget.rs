@@ -67,7 +67,8 @@ pub struct ClickResult {
 #[derive(Debug)]
 pub enum ClickResultKind {
     Char,
-    Word,
+    Word { likeness: usize },
+    Solution,
 }
 
 #[derive(Debug)]
@@ -77,6 +78,7 @@ pub struct MainWidget {
     cursor: CursorPosition,
     highlight: CursorHighlight,
     words: Vec<(String, usize)>,
+    solution: String,
 }
 
 impl Default for MainWidget {
@@ -213,6 +215,7 @@ impl MainWidget {
 
         let first_offset = Self::random_first_offset(&mut rng);
         let (content, words) = Self::random_content(&mut rng);
+        let solution = words[rng.random_range(0..words.len())].0.clone();
 
         let mut s = Self {
             first_offset,
@@ -220,6 +223,7 @@ impl MainWidget {
             cursor: CursorPosition::default(),
             highlight: CursorHighlight::Char(0),
             words,
+            solution,
         };
 
         s.fix_cursor_highlight();
@@ -297,8 +301,45 @@ impl MainWidget {
         };
     }
 
+    fn likeness_score(&self, word: &str) -> usize {
+        self.solution
+            .chars()
+            .zip(word.chars())
+            .filter(|(c1, c2)| c1 == c2)
+            .count()
+    }
+
     pub fn click(&mut self) -> ClickResult {
-        todo!();
+        match self.highlight {
+            CursorHighlight::Char(position) => {
+                let cursor = CursorPosition::from_index(position);
+                let c = self.content[cursor.row].chars().nth(cursor.column).unwrap();
+                ClickResult {
+                    kind: ClickResultKind::Char,
+                    string: c.to_string(),
+                }
+            }
+            CursorHighlight::Word { start_index, .. } => {
+                let clicked_word = self
+                    .words
+                    .iter()
+                    .find_map(|(word, word_position)| {
+                        (*word_position == start_index).then_some(word)
+                    })
+                    .unwrap()
+                    .clone();
+                let kind = if clicked_word == self.solution {
+                    ClickResultKind::Solution
+                } else {
+                    let likeness = self.likeness_score(&clicked_word);
+                    ClickResultKind::Word { likeness }
+                };
+                ClickResult {
+                    kind,
+                    string: clicked_word,
+                }
+            }
+        }
     }
 }
 

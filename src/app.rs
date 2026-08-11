@@ -13,7 +13,11 @@ use ratatui::{
     widgets::{Block, BorderType, Widget},
 };
 
-use crate::{main_widget::MainWidget, right_widget::RightWidget, top_widget::TopWidget};
+use crate::{
+    main_widget::{ClickResultKind, MainWidget},
+    right_widget::RightWidget,
+    top_widget::TopWidget,
+};
 
 const TOP_WIDTH: u16 = TERMINAL_WIDTH;
 const TOP_HEIGHT: u16 = 4;
@@ -101,10 +105,17 @@ impl App {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => {
-                let _click_result = self.main_widget.click();
-                // TODO: handle click result
-                // -> adjust top_widget.remaining_attempts
-                // -> add to right_widget's history
+                let click_result = self.main_widget.click();
+                match click_result.kind {
+                    ClickResultKind::Char => (),
+                    ClickResultKind::Word { .. } => {
+                        if self.top_widget.remove_attempt() {
+                            // TODO: used up all attempts; init lockout
+                        }
+                    }
+                    ClickResultKind::Solution => todo!(),
+                }
+                self.right_widget.add_to_history(&click_result);
             }
             _ => (),
         }

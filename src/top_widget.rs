@@ -6,6 +6,15 @@ pub struct TopWidget {
     remaining_attempts: usize,
 }
 
+impl TopWidget {
+    pub fn remove_attempt(&mut self) -> bool {
+        if self.remaining_attempts > 0 {
+            self.remaining_attempts -= 1;
+        }
+        self.remaining_attempts == 0
+    }
+}
+
 impl Default for TopWidget {
     fn default() -> Self {
         Self {
