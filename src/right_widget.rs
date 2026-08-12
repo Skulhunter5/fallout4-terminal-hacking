@@ -4,7 +4,7 @@ use ratatui::{
     widgets::Widget,
 };
 
-use crate::main_widget::{ClickResult, ClickResultKind};
+use crate::main_widget::{ClickResult, ClickResultKind, MainWidget};
 
 #[derive(Debug, Default)]
 pub struct RightWidget {
@@ -13,6 +13,11 @@ pub struct RightWidget {
 }
 
 impl RightWidget {
+    // TODO: figure out if this is actually the max width
+    pub const WIDTH: u16 = ">Entry denied.".len() as u16;
+    pub const HEIGHT: u16 = MainWidget::HEIGHT;
+    pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
+
     pub fn set_selected_string(&mut self, string: String) {
         self.selected_string = string;
         self.selected_string.insert(0, '>');
@@ -33,6 +38,8 @@ impl RightWidget {
 
 impl Widget for &RightWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        assert_eq!(area.as_size(), RightWidget::SIZE);
+
         let cmd_area = area
             .resize(Size::new(area.width, 1))
             .offset(Offset::new(0, area.height as i32 - 1));
@@ -41,6 +48,8 @@ impl Widget for &RightWidget {
         // - block cursor. same size as for remaining attempts
         // - speed unclear. somewhere between 2 and 4 times per second
 
+        // It might be unnecessary to have wrapping logic because all output text seems to be
+        // designed so that it always fits into one row.
         let history_area = area.resize(Size::new(area.width, area.height - 1));
         if history_area.height > 0 && !self.history.is_empty() {
             let mut i = self.history.len() - 1;

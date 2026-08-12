@@ -1,4 +1,8 @@
-use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Rect, Size},
+    widgets::Widget,
+};
 
 #[derive(Debug)]
 pub struct TopWidget {
@@ -7,6 +11,10 @@ pub struct TopWidget {
 }
 
 impl TopWidget {
+    pub const WIDTH: u16 = 54;
+    pub const HEIGHT: u16 = 4;
+    pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
+
     pub fn remove_attempt(&mut self) -> bool {
         if self.remaining_attempts > 0 {
             self.remaining_attempts -= 1;
@@ -26,6 +34,8 @@ impl Default for TopWidget {
 
 impl Widget for &TopWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        assert_eq!(area.as_size(), TopWidget::SIZE);
+
         let lines = area.rows().collect::<Vec<Rect>>();
         assert_eq!(lines.len(), 4);
 

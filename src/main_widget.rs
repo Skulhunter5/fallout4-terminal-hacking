@@ -109,20 +109,19 @@ impl MainWidget {
 
     const SPACING: u16 = 1;
 
-    pub const ROWS_PER_BLOCK: usize = 17;
-    pub const COLUMNS_PER_BLOCK: usize = 12;
-    pub const BLOCKS: usize = 2;
-
-    pub const MAX_OFFSET: usize = 0xFFFF;
-    pub const POSSIBLE_OFFSET_COUNT: usize = Self::MAX_OFFSET / Self::COLUMNS_PER_BLOCK;
-    pub const SHOWN_OFFSET_COUNT: usize = Self::ROWS_PER_BLOCK * Self::BLOCKS;
-    pub const TOTAL_OFFSET_LENGTH: usize =
-        Self::ROWS_PER_BLOCK * Self::COLUMNS_PER_BLOCK * Self::BLOCKS;
-    pub const MAX_FIRST_OFFSET: usize = Self::POSSIBLE_OFFSET_COUNT - Self::SHOWN_OFFSET_COUNT;
+    const ROWS_PER_BLOCK: usize = 17;
+    const COLUMNS_PER_BLOCK: usize = 12;
+    const BLOCKS: usize = 2;
 
     const CHARACTERS_PER_ROW: usize = Self::COLUMNS_PER_BLOCK;
     const CHARACTERS_PER_BLOCK: usize = Self::CHARACTERS_PER_ROW * Self::ROWS_PER_BLOCK;
     const CHARACTERS_TOTAL: usize = Self::CHARACTERS_PER_BLOCK * Self::BLOCKS;
+
+    // Figuring out possible offsets
+    const MAX_OFFSET: usize = 0xFFFF;
+    const POSSIBLE_OFFSET_COUNT: usize = Self::MAX_OFFSET / Self::COLUMNS_PER_BLOCK;
+    const SHOWN_OFFSET_COUNT: usize = Self::ROWS_PER_BLOCK * Self::BLOCKS;
+    const MAX_FIRST_OFFSET: usize = Self::POSSIBLE_OFFSET_COUNT - Self::SHOWN_OFFSET_COUNT;
 
     const _ASSERTION: () = const {
         assert!(
