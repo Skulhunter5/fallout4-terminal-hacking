@@ -98,16 +98,13 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
-        // TODO: move cursor with arrow keys
-        // - arrow keys to step up, down, left, right
-        // - move onto a word like normal. moving across (left <-> right) skips right over to the
-        //   other side
-        // - going through (up <-> down) stays on the same column, even moving through multiple
-        //   words
-        // - movement works between blocks (left <-> right; through the middle) but no wrapping
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => self.submit_element_under_cursor(),
+            KeyCode::Up => self.main_widget.move_cursor_up(),
+            KeyCode::Down => self.main_widget.move_cursor_down(),
+            KeyCode::Left => self.main_widget.move_cursor_left(),
+            KeyCode::Right => self.main_widget.move_cursor_right(),
             _ => (),
         }
     }

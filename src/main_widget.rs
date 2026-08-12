@@ -277,6 +277,48 @@ impl MainWidget {
         false
     }
 
+    pub fn move_cursor_up(&mut self) {
+        if self.cursor.row > 0 {
+            self.cursor.row -= 1;
+            self.fix_cursor_highlight();
+        }
+    }
+
+    pub fn move_cursor_down(&mut self) {
+        if self.cursor.row < Self::ROWS_PER_BLOCK - 1 {
+            self.cursor.row += 1;
+            self.fix_cursor_highlight();
+        }
+    }
+
+    pub fn move_cursor_left(&mut self) {
+        // TODO: figure out what happens with words that span multiple lines
+        // TODO: step over words
+        if self.cursor.column > 0 {
+            self.cursor.column -= 1;
+            self.fix_cursor_highlight();
+        } else if self.cursor.column == 0 && self.cursor.block > 0 {
+            self.cursor.block -= 1;
+            self.cursor.column = Self::COLUMNS_PER_BLOCK;
+            self.fix_cursor_highlight();
+        }
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        // TODO: figure out what happens with words that span multiple lines
+        // TODO: step over words
+        if self.cursor.column < Self::COLUMNS_PER_BLOCK - 1 {
+            self.cursor.column += 1;
+            self.fix_cursor_highlight();
+        } else if self.cursor.block < Self::BLOCKS - 1
+            && self.cursor.column == Self::COLUMNS_PER_BLOCK - 1
+        {
+            self.cursor.block += 1;
+            self.cursor.column = 0;
+            self.fix_cursor_highlight();
+        }
+    }
+
     fn set_cursor(&mut self, cursor: CursorPosition) {
         self.cursor = cursor;
         self.fix_cursor_highlight();
