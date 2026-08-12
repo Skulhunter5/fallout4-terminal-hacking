@@ -101,10 +101,10 @@ impl App {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => self.submit_element_under_cursor(),
-            KeyCode::Up => self.main_widget.move_cursor_up(),
-            KeyCode::Down => self.main_widget.move_cursor_down(),
-            KeyCode::Left => self.main_widget.move_cursor_left(),
-            KeyCode::Right => self.main_widget.move_cursor_right(),
+            KeyCode::Up | KeyCode::Char('w') => self.main_widget.move_cursor_up(),
+            KeyCode::Down | KeyCode::Char('s') => self.main_widget.move_cursor_down(),
+            KeyCode::Left | KeyCode::Char('a') => self.main_widget.move_cursor_left(),
+            KeyCode::Right | KeyCode::Char('d') => self.main_widget.move_cursor_right(),
             _ => (),
         }
     }
