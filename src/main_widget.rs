@@ -292,7 +292,6 @@ impl MainWidget {
     }
 
     pub fn move_cursor_left(&mut self) {
-        // TODO: step over words
         if let CursorHighlight::Word {
             start_index,
             length: _,
