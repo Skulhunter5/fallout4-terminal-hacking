@@ -71,6 +71,18 @@ pub enum ClickResultKind {
     Solution,
 }
 
+// TODO: add parenthesis pairs to remove duds and reset tries
+// - Output text:
+//   ">Dud Removed."
+//   ">Tries Reset."
+// - Pairs don't work across words
+//   - What happens when this word is a dud and is removed by another pair?
+//     Does it also become a pair or not?
+//     - It seems to actually become a pair
+// - One closing parenthesis can work for multiple opening parenthesis
+//   - Can be submitted in either order
+//   - e.g. "<<,>": both "<,>" and "<<,>" are valid pairs
+// - Pair stays selected after submission but can't be selected again
 #[derive(Debug)]
 pub struct MainWidget {
     first_offset: usize,

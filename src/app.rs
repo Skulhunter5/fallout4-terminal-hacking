@@ -101,8 +101,13 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
-        // TODO: add controls for keyboard
-        // > move cursor with arrow keys
+        // TODO: move cursor with arrow keys
+        // - arrow keys to step up, down, left, right
+        // - move onto a word like normal. moving across (left <-> right) skips right over to the
+        //   other side
+        // - going through (up <-> down) stays on the same column, even moving through multiple
+        //   words
+        // - movement works between blocks (left <-> right; through the middle) but no wrapping
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => self.submit_element_under_cursor(),
@@ -147,6 +152,10 @@ impl App {
             ClickResultKind::Word { .. } => {
                 if self.top_widget.remove_attempt() {
                     // TODO: used up all attempts; init lockout
+                    // Output (right widget) after selecting last wrong word is:
+                    // >WORD
+                    // >Entry denied.
+                    // >Init Lockout
                 }
             }
             ClickResultKind::Solution => todo!(),

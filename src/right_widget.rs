@@ -37,6 +37,9 @@ impl Widget for &RightWidget {
             .resize(Size::new(area.width, 1))
             .offset(Offset::new(0, area.height as i32 - 1));
         self.selected_string.as_str().render(cmd_area, buf);
+        // TODO: render blinking cursor after selected string line
+        // - block cursor. same size as for remaining attempts
+        // - speed unclear. somewhere between 2 and 4 times per second
 
         let history_area = area.resize(Size::new(area.width, area.height - 1));
         if history_area.height > 0 && !self.history.is_empty() {
