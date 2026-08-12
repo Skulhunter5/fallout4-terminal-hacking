@@ -5,7 +5,7 @@ use ratatui::{
     buffer::Buffer,
     crossterm::{
         self,
-        event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind},
+        event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     },
     layout::{Constraint, Offset, Position, Rect, Size},
     style::{Color, Style},
@@ -50,6 +50,7 @@ pub struct App {
     right_widget: RightWidget,
     main_widget: MainWidget,
     widget_areas: Option<(Option<Rect>, Rect, Rect, Rect)>,
+    main_widget_clickable: bool,
 }
 
 impl Default for App {
@@ -65,6 +66,7 @@ impl Default for App {
             right_widget,
             main_widget,
             widget_areas: None,
+            main_widget_clickable: false,
         }
     }
 }
@@ -104,19 +106,18 @@ impl App {
         // > click on selected element with KeyCode::Char('e')
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
-            KeyCode::Char('e') => {
-                let click_result = self.main_widget.click();
-                match click_result.kind {
-                    ClickResultKind::Char => (),
-                    ClickResultKind::Word { .. } => {
-                        if self.top_widget.remove_attempt() {
-                            // TODO: used up all attempts; init lockout
-                        }
-                    }
-                    ClickResultKind::Solution => todo!(),
-                }
-                self.right_widget.add_to_history(&click_result);
-            }
+            KeyCode::Char('e') => self.submit_element_under_cursor(),
+            // let click_result = self.main_widget.click();
+            // match click_result.kind {
+            //     ClickResultKind::Char => (),
+            //     ClickResultKind::Word { .. } => {
+            //         if self.top_widget.remove_attempt() {
+            //             // TODO: used up all attempts; init lockout
+            //         }
+            //     }
+            //     ClickResultKind::Solution => todo!(),
+            // }
+            // self.right_widget.add_to_history(&click_result);
             _ => (),
         }
     }
@@ -130,18 +131,39 @@ impl App {
                 let column = mouse_event.column;
                 let row = mouse_event.row;
                 if !main_area.contains(Position::new(column, row)) {
+                    self.main_widget_clickable = false;
                     return;
                 }
-                self.main_widget
+                self.main_widget_clickable = self
+                    .main_widget
                     .move_cursor(Position::new(column - main_area.x, row - main_area.y));
                 self.right_widget
                     .set_selected_string(self.main_widget.get_highlighted_string());
             }
-            MouseEventKind::Down(_mouse_button) => {
-                // TODO: click on element
-            }
+            MouseEventKind::Down(mouse_button) => match mouse_button {
+                MouseButton::Left | MouseButton::Right => {
+                    if self.main_widget_clickable {
+                        self.submit_element_under_cursor();
+                    }
+                }
+                MouseButton::Middle => (),
+            },
             _ => (),
         }
+    }
+
+    fn submit_element_under_cursor(&mut self) {
+        let click_result = self.main_widget.click();
+        match click_result.kind {
+            ClickResultKind::Char => (),
+            ClickResultKind::Word { .. } => {
+                if self.top_widget.remove_attempt() {
+                    // TODO: used up all attempts; init lockout
+                }
+            }
+            ClickResultKind::Solution => todo!(),
+        }
+        self.right_widget.add_to_history(&click_result);
     }
 
     fn resize(&mut self, columns: u16, rows: u16) {

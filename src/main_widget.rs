@@ -231,7 +231,7 @@ impl MainWidget {
         s
     }
 
-    pub fn move_cursor(&mut self, position: Position) {
+    pub fn move_cursor(&mut self, position: Position) -> bool {
         let area = Rect::new(0, 0, Self::SIZE.width, Self::SIZE.height);
 
         let blocks = vec![
@@ -255,13 +255,19 @@ impl MainWidget {
                 -(content_area.x as i32),
                 -(content_area.y as i32),
             ));
-            self.cursor = CursorPosition {
+            self.set_cursor(CursorPosition {
                 block: block_index,
                 column: projected_position.x as usize,
                 row: projected_position.y as usize,
-            };
+            });
+            return true;
         }
 
+        false
+    }
+
+    fn set_cursor(&mut self, cursor: CursorPosition) {
+        self.cursor = cursor;
         self.fix_cursor_highlight();
     }
 
