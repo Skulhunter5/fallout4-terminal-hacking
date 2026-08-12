@@ -23,13 +23,17 @@ impl RightWidget {
         self.selected_string.insert(0, '>');
     }
 
-    pub fn add_to_history(&mut self, click_result: &ClickResult) {
+    pub fn add_to_history(&mut self, click_result: &ClickResult, final_submission: bool) {
         self.history.push(format!(">{}", click_result.string));
         match click_result.kind {
             ClickResultKind::Char => self.history.push(">Error".to_owned()),
             ClickResultKind::Word { likeness } => {
                 self.history.push(">Entry denied.".to_owned());
-                self.history.push(format!(">Likeness={}", likeness));
+                if final_submission {
+                    self.history.push(">Init Lockout".to_owned());
+                } else {
+                    self.history.push(format!(">Likeness={}", likeness));
+                }
             }
             ClickResultKind::Solution => todo!(),
         };

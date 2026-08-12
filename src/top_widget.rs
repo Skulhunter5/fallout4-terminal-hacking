@@ -15,10 +15,13 @@ impl TopWidget {
     pub const HEIGHT: u16 = 4;
     pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
 
-    pub fn remove_attempt(&mut self) -> bool {
+    pub fn remove_attempt(&mut self) {
         if self.remaining_attempts > 0 {
             self.remaining_attempts -= 1;
         }
+    }
+
+    pub fn locked_out(&self) -> bool {
         self.remaining_attempts == 0
     }
 }

@@ -40,6 +40,11 @@ const fn p2o(position: Position) -> Offset {
     Offset::new(position.x as i32, position.y as i32)
 }
 
+// TODO: actually implement lockout
+// - What happens when the lockout is active?
+//   - Can the cursor still move?
+//   - Can you still submit words but just get some kind of error?
+//   - Can you no longer submit words?
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
@@ -143,18 +148,11 @@ impl App {
         let click_result = self.main_widget.click();
         match click_result.kind {
             ClickResultKind::Char => (),
-            ClickResultKind::Word { .. } => {
-                if self.top_widget.remove_attempt() {
-                    // TODO: used up all attempts; init lockout
-                    // Output (right widget) after selecting last wrong word is:
-                    // >WORD
-                    // >Entry denied.
-                    // >Init Lockout
-                }
-            }
+            ClickResultKind::Word { .. } => self.top_widget.remove_attempt(),
             ClickResultKind::Solution => todo!(),
         }
-        self.right_widget.add_to_history(&click_result);
+        self.right_widget
+            .add_to_history(&click_result, self.top_widget.locked_out());
     }
 
     fn resize(&mut self, columns: u16, rows: u16) {
