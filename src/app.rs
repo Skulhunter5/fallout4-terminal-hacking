@@ -107,17 +107,6 @@ impl App {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => self.submit_element_under_cursor(),
-            // let click_result = self.main_widget.click();
-            // match click_result.kind {
-            //     ClickResultKind::Char => (),
-            //     ClickResultKind::Word { .. } => {
-            //         if self.top_widget.remove_attempt() {
-            //             // TODO: used up all attempts; init lockout
-            //         }
-            //     }
-            //     ClickResultKind::Solution => todo!(),
-            // }
-            // self.right_widget.add_to_history(&click_result);
             _ => (),
         }
     }
