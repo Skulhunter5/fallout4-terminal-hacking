@@ -103,7 +103,6 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         // TODO: add controls for keyboard
         // > move cursor with arrow keys
-        // > click on selected element with KeyCode::Char('e')
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => self.submit_element_under_cursor(),
