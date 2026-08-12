@@ -292,8 +292,27 @@ impl MainWidget {
     }
 
     pub fn move_cursor_left(&mut self) {
-        // TODO: figure out what happens with words that span multiple lines
         // TODO: step over words
+        if let CursorHighlight::Word {
+            start_index,
+            length: _,
+        } = &self.highlight
+        {
+            let start_cursor = CursorPosition::from_index(*start_index);
+            if start_cursor.row != self.cursor.row || start_cursor.block != self.cursor.block {
+                // TODO: figure out what happens with words that span multiple lines
+                todo!();
+            }
+            if start_cursor.column > 0 {
+                self.cursor.column = start_cursor.column - 1;
+                self.fix_cursor_highlight();
+            } else {
+                // TODO: figure out what happens with words at start or end of line
+                todo!();
+            }
+            return;
+        }
+
         if self.cursor.column > 0 {
             self.cursor.column -= 1;
             self.fix_cursor_highlight();
@@ -305,8 +324,26 @@ impl MainWidget {
     }
 
     pub fn move_cursor_right(&mut self) {
-        // TODO: figure out what happens with words that span multiple lines
-        // TODO: step over words
+        if let CursorHighlight::Word {
+            start_index,
+            length,
+        } = &self.highlight
+        {
+            let end_cursor = CursorPosition::from_index(start_index + length);
+            if end_cursor.row != self.cursor.row || end_cursor.block != self.cursor.block {
+                // TODO: figure out what happens with words that span multiple lines
+                todo!();
+            }
+            if end_cursor.column < Self::COLUMNS_PER_BLOCK {
+                self.cursor.column = end_cursor.column;
+                self.fix_cursor_highlight();
+            } else {
+                // TODO: figure out what happens with words at start or end of line
+                todo!();
+            }
+            return;
+        }
+
         if self.cursor.column < Self::COLUMNS_PER_BLOCK - 1 {
             self.cursor.column += 1;
             self.fix_cursor_highlight();
