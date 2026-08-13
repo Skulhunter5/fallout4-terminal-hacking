@@ -112,9 +112,13 @@ impl App {
         }
         match key_event.code {
             KeyCode::Char('e') => self.submit_element_under_cursor(),
-            // RESEARCH: What happens when the player moves the cursor away from the mouse using
+            // TODO: What happens when the player moves the cursor away from the mouse using
             // array keys or wasd and then clicks the mouse (without moving it)?
-            // - self.main_widget_clickable needs to be set accordingly
+            // -> Mouse can no longer click until it is moved again. Though there seems to be a minor window where it
+            //    still can (as long as the cursor is still underneath the mouse cursor to a certain
+            //    extent), but that should probably be ignored.
+            // self.main_widget_clickable needs to be set accordingly. probably just set to false
+            // when moving the cursor using keys
             KeyCode::Up | KeyCode::Char('w') => {
                 self.main_widget.move_cursor_up();
                 self.right_widget
