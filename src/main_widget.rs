@@ -155,6 +155,11 @@ impl MainWidget {
 
     fn random_content(rng: &mut impl Rng) -> (Vec<String>, Vec<(String, usize)>) {
         const WORD_LENGTH: usize = 4;
+        // According to https://fallout.fandom.com/wiki/Hacking_(Fallout_4), the number of words
+        // depends on the Intelligence stat of the user directly.
+        // This needs to be investigated further though since the same chapter also mentions
+        // "x/y correct", which seemed to be the fact for earlier games. In Fallout 4 it says
+        // "Likeness=x".
         const WORD_COUNT: usize = 10;
 
         let mut content = Vec::with_capacity(Self::ROWS_PER_BLOCK * Self::BLOCKS);
