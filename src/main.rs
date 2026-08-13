@@ -21,7 +21,6 @@ fn main() -> Result<()> {
     stdout().execute(EnableMouseCapture)?;
 
     let app_result = App::default().run(&mut terminal);
-    // let app_result = Game::default().run(&mut terminal);
 
     stdout().execute(DisableMouseCapture)?;
     ratatui::restore();
