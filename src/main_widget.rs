@@ -300,6 +300,7 @@ impl MainWidget {
             let start_cursor = CursorPosition::from_index(*start_index);
             if start_cursor.row != self.cursor.row || start_cursor.block != self.cursor.block {
                 // TODO: figure out what happens with words that span multiple lines
+                // -> handle as if the word was only the part on the current line
                 todo!();
             }
             if start_cursor.column > 0 {
@@ -307,6 +308,8 @@ impl MainWidget {
                 self.fix_cursor_highlight();
             } else {
                 // TODO: figure out what happens with words at start or end of line
+                // -> don't move the cursor when running into the border
+                // -> move the cursor to the other block when moving into the middle
                 todo!();
             }
             return;
@@ -331,6 +334,7 @@ impl MainWidget {
             let end_cursor = CursorPosition::from_index(start_index + length);
             if end_cursor.row != self.cursor.row || end_cursor.block != self.cursor.block {
                 // TODO: figure out what happens with words that span multiple lines
+                // -> handle as if the word was only the part on the current line
                 todo!();
             }
             if end_cursor.column < Self::COLUMNS_PER_BLOCK {
@@ -338,6 +342,8 @@ impl MainWidget {
                 self.fix_cursor_highlight();
             } else {
                 // TODO: figure out what happens with words at start or end of line
+                // -> don't move the cursor when running into the border
+                // -> move the cursor to the other block when moving into the middle
                 todo!();
             }
             return;

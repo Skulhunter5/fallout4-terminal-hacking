@@ -42,9 +42,7 @@ const fn p2o(position: Position) -> Offset {
 
 // TODO: actually implement lockout
 // - What happens when the lockout is active?
-//   - Can the cursor still move?
-//   - Can you still submit words but just get some kind of error?
-//   - Can you no longer submit words?
+//   -> output for that submission is printed and then everything freezes
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
