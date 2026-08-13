@@ -16,6 +16,8 @@ pub struct Submission {
 pub enum SubmissionKind {
     Char,
     Word { likeness: usize, lockout: bool },
+    DudRemoved,
+    AttemptsReset,
     Solution,
 }
 
@@ -48,6 +50,8 @@ impl RightWidget {
                     self.history.push(format!(">Likeness={}", likeness));
                 }
             }
+            SubmissionKind::DudRemoved => self.history.push(">Dud Removed.".to_owned()),
+            SubmissionKind::AttemptsReset => self.history.push(">Tries Reset.".to_owned()),
             SubmissionKind::Solution => todo!(),
         };
     }

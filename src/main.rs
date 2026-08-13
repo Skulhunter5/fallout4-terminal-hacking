@@ -22,3 +22,9 @@ fn main() -> Result<()> {
     ratatui::restore();
     app_result.map_err(|e| e.into())
 }
+
+impl Drop for App {
+    fn drop(&mut self) {
+        stdout().execute(DisableMouseCapture).unwrap();
+    }
+}

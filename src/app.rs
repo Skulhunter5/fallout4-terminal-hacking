@@ -1,5 +1,6 @@
 use std::io;
 
+use rand::RngExt;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
@@ -46,6 +47,7 @@ const fn p2o(position: Position) -> Offset {
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
+    rng: rand::rngs::ThreadRng,
     top_widget: TopWidget,
     right_widget: RightWidget,
     main_widget: MainWidget,
@@ -55,13 +57,15 @@ pub struct App {
 
 impl Default for App {
     fn default() -> Self {
+        let mut rng = rand::rng();
         let top_widget = TopWidget::default();
-        let main_widget = MainWidget::default();
+        let main_widget = MainWidget::new_random(&mut rng);
         let mut right_widget = RightWidget::default();
         right_widget.set_selected_string(main_widget.get_highlighted_string());
 
         Self {
             should_exit: false,
+            rng,
             top_widget,
             right_widget,
             main_widget,
@@ -175,7 +179,28 @@ impl App {
                     kind: SubmissionKind::Word { likeness, lockout },
                 }
             }
-            ClickResultKind::Solution => todo!(),
+            ClickResultKind::Pair => {
+                // RESEARCH: What's the correct chance
+                // RESET_TRIES_CHANCE = (numerator, denominator)
+                const RESET_TRIES_CHANCE: (u32, u32) = (1, 10);
+                if self
+                    .rng
+                    .random_ratio(RESET_TRIES_CHANCE.0, RESET_TRIES_CHANCE.1)
+                {
+                    self.top_widget.reset_attempts();
+                    Submission {
+                        kind: SubmissionKind::AttemptsReset,
+                        string: click_result.string,
+                    }
+                } else {
+                    self.main_widget.remove_dud(&mut self.rng);
+                    Submission {
+                        kind: SubmissionKind::DudRemoved,
+                        string: click_result.string,
+                    }
+                }
+            }
+            ClickResultKind::Solution => todo!("solution found"),
         };
         self.right_widget.add_to_history(&submission);
     }

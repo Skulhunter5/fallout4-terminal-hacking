@@ -54,8 +54,9 @@ impl CursorPosition {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CursorHighlight {
-    Char(usize),
+    Char { index: usize },
     Word { start_index: usize, length: usize },
+    Pair { start_index: usize, length: usize },
 }
 
 #[derive(Debug)]
@@ -68,21 +69,10 @@ pub struct ClickResult {
 pub enum ClickResultKind {
     Char,
     Word { likeness: usize },
+    Pair,
     Solution,
 }
 
-// TODO: add parenthesis pairs to remove duds and reset tries
-// - Output text:
-//   ">Dud Removed."
-//   ">Tries Reset."
-// - Pairs don't work across words
-//   - What happens when this word is a dud and is removed by another pair?
-//     Does it also become a pair or not?
-//     - It seems to actually become a pair
-// - One closing parenthesis can work for multiple opening parenthesis
-//   - Can be submitted in either order
-//   - e.g. "<<,>": both "<,>" and "<<,>" are valid pairs
-// - Pair stays selected after submission but can't be selected again
 #[derive(Debug)]
 pub struct MainWidget {
     first_offset: usize,
@@ -91,12 +81,7 @@ pub struct MainWidget {
     highlight: CursorHighlight,
     words: Vec<(String, usize)>,
     solution: String,
-}
-
-impl Default for MainWidget {
-    fn default() -> Self {
-        Self::new_random()
-    }
+    found_pairs: Vec<usize>,
 }
 
 impl MainWidget {
@@ -131,6 +116,8 @@ impl MainWidget {
         );
     };
 
+    const PAIRS: &[(char, char)] = &[('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+
     fn random_first_offset(rng: &mut impl Rng) -> usize {
         rng.random_range(0..Self::MAX_FIRST_OFFSET) * Self::COLUMNS_PER_BLOCK
     }
@@ -151,6 +138,40 @@ impl MainWidget {
             .iter()
             .map(|word| word.to_uppercase())
             .collect::<Vec<_>>()
+    }
+
+    fn replace_range_in_content(
+        content: &mut [String],
+        start_index: usize,
+        string: impl AsRef<str>,
+    ) {
+        let mut remaining_string = string.as_ref();
+        let mut cursor = CursorPosition::from_index(start_index);
+        loop {
+            let length = remaining_string
+                .len()
+                .min(Self::CHARACTERS_PER_ROW - cursor.column);
+            assert!(length > 0);
+
+            let string_part = {
+                let (left, right) = remaining_string.split_at(length);
+                remaining_string = right;
+                left
+            };
+            let row = &mut content[cursor.row_index()];
+
+            let start = cursor.column;
+            let end = cursor.column + length;
+            assert!(end <= row.len());
+            assert_eq!(end - start, length);
+
+            row.replace_range(start..end, string_part);
+
+            if remaining_string.is_empty() {
+                break;
+            }
+            cursor = cursor.next_row();
+        }
     }
 
     fn random_content(rng: &mut impl Rng) -> (Vec<String>, Vec<(String, usize)>) {
@@ -202,44 +223,26 @@ impl MainWidget {
 
         let words = words.into_iter().zip(word_positions).collect::<Vec<_>>();
 
-        for (word, position) in &words {
-            let mut remaining_word = &word[..];
-            let mut cursor = CursorPosition::from_index(*position);
-            while remaining_word.len() > MainWidget::CHARACTERS_PER_ROW - cursor.column {
-                let row = &mut content[cursor.row_index()];
-                row.truncate(cursor.column);
-                let (part, rem) =
-                    remaining_word.split_at(MainWidget::CHARACTERS_PER_ROW - cursor.column);
-                row.push_str(part);
-                remaining_word = rem;
-
-                cursor = cursor.next_row();
-            }
-            let row = &content[cursor.row_index()];
-            let mut new_row = String::with_capacity(row.len());
-            new_row.push_str(&row[..cursor.column]);
-            new_row.push_str(remaining_word);
-            new_row.push_str(&row[(cursor.column + remaining_word.len())..]);
-            content[cursor.row_index()] = new_row;
+        for (word, word_position) in &words {
+            Self::replace_range_in_content(&mut content, *word_position, word);
         }
 
         (content, words)
     }
 
-    pub fn new_random() -> Self {
-        let mut rng = rand::rng();
-
-        let first_offset = Self::random_first_offset(&mut rng);
-        let (content, words) = Self::random_content(&mut rng);
+    pub fn new_random(rng: &mut impl Rng) -> Self {
+        let first_offset = Self::random_first_offset(rng);
+        let (content, words) = Self::random_content(rng);
         let solution = words[rng.random_range(0..words.len())].0.clone();
 
         let mut s = Self {
             first_offset,
             content,
             cursor: CursorPosition::default(),
-            highlight: CursorHighlight::Char(0),
+            highlight: CursorHighlight::Char { index: 0 },
             words,
             solution,
+            found_pairs: Vec::new(),
         };
 
         s.fix_cursor_highlight();
@@ -375,14 +378,16 @@ impl MainWidget {
         self.fix_cursor_highlight();
     }
 
+    fn get_char_under_cursor(&self) -> char {
+        self.content[self.cursor.row_index()]
+            .chars()
+            .nth(self.cursor.column)
+            .unwrap()
+    }
+
     pub fn get_highlighted_string(&self) -> String {
         match self.highlight {
-            CursorHighlight::Char(position) => self.content
-                [self.cursor.block * Self::ROWS_PER_BLOCK + self.cursor.row]
-                .chars()
-                .nth(position % Self::CHARACTERS_PER_ROW)
-                .unwrap()
-                .to_string(),
+            CursorHighlight::Char { .. } => self.get_char_under_cursor().to_string(),
             CursorHighlight::Word {
                 start_index,
                 length,
@@ -395,20 +400,60 @@ impl MainWidget {
                 })
                 .unwrap()
                 .clone(),
+            CursorHighlight::Pair {
+                start_index,
+                length,
+            } => {
+                let cursor = CursorPosition::from_index(start_index);
+                self.content[cursor.row_index()][cursor.column..(cursor.column + length)]
+                    .to_string()
+            }
         }
     }
 
     fn fix_cursor_highlight(&mut self) {
         let cursor_index = self.cursor.index();
-        self.highlight = match self.words.iter().find(|(word, position)| {
-            let end = position + word.len();
-            cursor_index >= *position && cursor_index < end
-        }) {
-            Some((word, position)) => CursorHighlight::Word {
-                start_index: *position,
-                length: word.len(),
-            },
-            None => CursorHighlight::Char(cursor_index),
+        let char_under_cursor = self.get_char_under_cursor();
+
+        if char_under_cursor.is_alphabetic() {
+            self.highlight = self
+                .words
+                .iter()
+                .find(|(word, position)| {
+                    let end = position + word.len();
+                    cursor_index >= *position && cursor_index < end
+                })
+                .map(|(word, position)| CursorHighlight::Word {
+                    start_index: *position,
+                    length: word.len(),
+                })
+                .unwrap();
+            return;
+        }
+
+        if let Some(closing_char) = Self::PAIRS.iter().find_map(|(opening_char, closing_char)| {
+            (*opening_char == char_under_cursor).then_some(closing_char)
+        }) && !self.found_pairs.contains(&cursor_index)
+        {
+            for (i, c) in self.content[self.cursor.row_index()][self.cursor.column..]
+                .chars()
+                .enumerate()
+            {
+                if c.is_alphabetic() {
+                    break;
+                }
+                if c == *closing_char {
+                    self.highlight = CursorHighlight::Pair {
+                        start_index: cursor_index,
+                        length: i + 1,
+                    };
+                    return;
+                }
+            }
+        }
+
+        self.highlight = CursorHighlight::Char {
+            index: cursor_index,
         };
     }
 
@@ -421,24 +466,14 @@ impl MainWidget {
     }
 
     pub fn click(&mut self) -> ClickResult {
+        let string = self.get_highlighted_string();
         match self.highlight {
-            CursorHighlight::Char(position) => {
-                let cursor = CursorPosition::from_index(position);
-                let c = self.content[cursor.row].chars().nth(cursor.column).unwrap();
-                ClickResult {
-                    kind: ClickResultKind::Char,
-                    string: c.to_string(),
-                }
-            }
-            CursorHighlight::Word { start_index, .. } => {
-                let clicked_word = self
-                    .words
-                    .iter()
-                    .find_map(|(word, word_position)| {
-                        (*word_position == start_index).then_some(word)
-                    })
-                    .unwrap()
-                    .clone();
+            CursorHighlight::Char { .. } => ClickResult {
+                kind: ClickResultKind::Char,
+                string,
+            },
+            CursorHighlight::Word { .. } => {
+                let clicked_word = string;
                 let kind = if clicked_word == self.solution {
                     ClickResultKind::Solution
                 } else {
@@ -450,7 +485,35 @@ impl MainWidget {
                     string: clicked_word,
                 }
             }
+            CursorHighlight::Pair { start_index, .. } => {
+                if self.found_pairs.contains(&start_index) {
+                    // RESEARCH: Pairs aren't automatically deselected on click. What happens when you
+                    // click it again right afterwards without moving the cursor in between?
+                    todo!("pair submitted twice");
+                }
+                self.found_pairs.push(start_index);
+                ClickResult {
+                    kind: ClickResultKind::Pair,
+                    string,
+                }
+            }
         }
+    }
+
+    pub fn remove_dud(&mut self, rng: &mut impl Rng) {
+        if self.words.len() == 1 {
+            // RESEARCH: What happens if there aren't any duds left?
+            todo!("no dud left to remove");
+        }
+
+        let (word, word_position) = loop {
+            let word_index = rng.random_range(0..self.words.len());
+            if self.words[word_index].0 != self.solution {
+                break self.words.swap_remove(word_index);
+            }
+        };
+
+        Self::replace_range_in_content(&mut self.content, word_position, ".".repeat(word.len()));
     }
 }
 
@@ -467,8 +530,12 @@ impl Widget for &MainWidget {
         ];
 
         let highlight = match self.highlight {
-            CursorHighlight::Char(index) => index..index + 1,
+            CursorHighlight::Char { index } => index..index + 1,
             CursorHighlight::Word {
+                start_index,
+                length,
+            } => start_index..start_index + length,
+            CursorHighlight::Pair {
                 start_index,
                 length,
             } => start_index..start_index + length,

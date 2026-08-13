@@ -7,6 +7,7 @@ use ratatui::{
 #[derive(Debug)]
 pub struct TopWidget {
     head_line: String,
+    max_attempts: usize,
     remaining_attempts: usize,
 }
 
@@ -14,6 +15,10 @@ impl TopWidget {
     pub const WIDTH: u16 = 54;
     pub const HEIGHT: u16 = 4;
     pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
+
+    pub fn reset_attempts(&mut self) {
+        self.remaining_attempts = self.max_attempts;
+    }
 
     pub fn remove_attempt(&mut self) -> bool {
         if self.remaining_attempts > 0 {
@@ -32,6 +37,7 @@ impl Default for TopWidget {
     fn default() -> Self {
         Self {
             head_line: "Welcome to ROBCO Industries (TM) Termlink".to_owned(),
+            max_attempts: 4,
             remaining_attempts: 4,
         }
     }
