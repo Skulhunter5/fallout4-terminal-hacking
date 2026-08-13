@@ -16,8 +16,6 @@ mod top_widget;
 #[allow(unused)]
 mod wordlists;
 
-// TODO: add menu for selecting difficulty
-
 fn main() -> Result<()> {
     let mut terminal = ratatui::init();
     stdout().execute(EnableMouseCapture)?;
