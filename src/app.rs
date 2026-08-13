@@ -41,9 +41,6 @@ const fn p2o(position: Position) -> Offset {
     Offset::new(position.x as i32, position.y as i32)
 }
 
-// TODO: actually implement lockout
-// - What happens when the lockout is active?
-//   -> output for that submission is printed and then everything freezes
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
@@ -107,6 +104,13 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
+            _ => (),
+        }
+
+        if self.top_widget.locked_out() {
+            return;
+        }
+        match key_event.code {
             KeyCode::Char('e') => self.submit_element_under_cursor(),
             // RESEARCH: What happens when the player moves the cursor away from the mouse using
             // array keys or wasd and then clicks the mouse (without moving it)?
@@ -136,6 +140,9 @@ impl App {
     }
 
     fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
+        if self.top_widget.locked_out() {
+            return;
+        }
         match mouse_event.kind {
             MouseEventKind::Moved => {
                 let Some((_, _, main_area, _)) = &self.widget_areas else {
