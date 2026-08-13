@@ -4,7 +4,20 @@ use ratatui::{
     widgets::Widget,
 };
 
-use crate::main_widget::{ClickResult, ClickResultKind, MainWidget};
+use crate::main_widget::MainWidget;
+
+#[derive(Debug)]
+pub struct Submission {
+    pub string: String,
+    pub kind: SubmissionKind,
+}
+
+#[derive(Debug)]
+pub enum SubmissionKind {
+    Char,
+    Word { likeness: usize, lockout: bool },
+    Solution,
+}
 
 #[derive(Debug, Default)]
 pub struct RightWidget {
@@ -23,19 +36,19 @@ impl RightWidget {
         self.selected_string.insert(0, '>');
     }
 
-    pub fn add_to_history(&mut self, click_result: &ClickResult, final_submission: bool) {
-        self.history.push(format!(">{}", click_result.string));
-        match click_result.kind {
-            ClickResultKind::Char => self.history.push(">Error".to_owned()),
-            ClickResultKind::Word { likeness } => {
+    pub fn add_to_history(&mut self, submission: &Submission) {
+        self.history.push(format!(">{}", submission.string));
+        match submission.kind {
+            SubmissionKind::Char => self.history.push(">Error".to_owned()),
+            SubmissionKind::Word { likeness, lockout } => {
                 self.history.push(">Entry denied.".to_owned());
-                if final_submission {
+                if lockout {
                     self.history.push(">Init Lockout".to_owned());
                 } else {
                     self.history.push(format!(">Likeness={}", likeness));
                 }
             }
-            ClickResultKind::Solution => todo!(),
+            SubmissionKind::Solution => todo!(),
         };
     }
 }

@@ -15,7 +15,7 @@ use ratatui::{
 
 use crate::{
     main_widget::{ClickResultKind, MainWidget},
-    right_widget::RightWidget,
+    right_widget::{RightWidget, Submission, SubmissionKind},
     top_widget::TopWidget,
 };
 
@@ -144,13 +144,21 @@ impl App {
 
     fn submit_element_under_cursor(&mut self) {
         let click_result = self.main_widget.click();
-        match click_result.kind {
-            ClickResultKind::Char => (),
-            ClickResultKind::Word { .. } => self.top_widget.remove_attempt(),
+        let submission = match click_result.kind {
+            ClickResultKind::Char => Submission {
+                string: click_result.string,
+                kind: SubmissionKind::Char,
+            },
+            ClickResultKind::Word { likeness } => {
+                let lockout = self.top_widget.remove_attempt();
+                Submission {
+                    string: click_result.string,
+                    kind: SubmissionKind::Word { likeness, lockout },
+                }
+            }
             ClickResultKind::Solution => todo!(),
-        }
-        self.right_widget
-            .add_to_history(&click_result, self.top_widget.locked_out());
+        };
+        self.right_widget.add_to_history(&submission);
     }
 
     fn resize(&mut self, columns: u16, rows: u16) {

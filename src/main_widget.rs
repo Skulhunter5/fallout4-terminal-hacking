@@ -297,20 +297,21 @@ impl MainWidget {
             length: _,
         } = &self.highlight
         {
-            let start_cursor = CursorPosition::from_index(*start_index);
+            let mut start_cursor = CursorPosition::from_index(*start_index);
             if start_cursor.row != self.cursor.row || start_cursor.block != self.cursor.block {
-                // TODO: figure out what happens with words that span multiple lines
-                // -> handle as if the word was only the part on the current line
-                todo!();
+                start_cursor = CursorPosition {
+                    block: self.cursor.block,
+                    row: self.cursor.row,
+                    column: 0,
+                };
             }
             if start_cursor.column > 0 {
                 self.cursor.column = start_cursor.column - 1;
                 self.fix_cursor_highlight();
-            } else {
-                // TODO: figure out what happens with words at start or end of line
-                // -> don't move the cursor when running into the border
-                // -> move the cursor to the other block when moving into the middle
-                todo!();
+            } else if start_cursor.column == 0 && start_cursor.block > 0 {
+                self.cursor.block -= 1;
+                self.cursor.column = Self::COLUMNS_PER_BLOCK - 1;
+                self.fix_cursor_highlight();
             }
             return;
         }
@@ -320,7 +321,7 @@ impl MainWidget {
             self.fix_cursor_highlight();
         } else if self.cursor.column == 0 && self.cursor.block > 0 {
             self.cursor.block -= 1;
-            self.cursor.column = Self::COLUMNS_PER_BLOCK;
+            self.cursor.column = Self::COLUMNS_PER_BLOCK - 1;
             self.fix_cursor_highlight();
         }
     }
@@ -331,20 +332,23 @@ impl MainWidget {
             length,
         } = &self.highlight
         {
-            let end_cursor = CursorPosition::from_index(start_index + length);
+            let mut end_cursor = CursorPosition::from_index(start_index + length - 1);
             if end_cursor.row != self.cursor.row || end_cursor.block != self.cursor.block {
-                // TODO: figure out what happens with words that span multiple lines
-                // -> handle as if the word was only the part on the current line
-                todo!();
+                end_cursor = CursorPosition {
+                    block: self.cursor.block,
+                    row: self.cursor.row,
+                    column: Self::COLUMNS_PER_BLOCK - 1,
+                };
             }
-            if end_cursor.column < Self::COLUMNS_PER_BLOCK {
-                self.cursor.column = end_cursor.column;
+            if end_cursor.column < Self::COLUMNS_PER_BLOCK - 1 {
+                self.cursor.column = end_cursor.column + 1;
                 self.fix_cursor_highlight();
-            } else {
-                // TODO: figure out what happens with words at start or end of line
-                // -> don't move the cursor when running into the border
-                // -> move the cursor to the other block when moving into the middle
-                todo!();
+            } else if end_cursor.column == Self::COLUMNS_PER_BLOCK - 1
+                && end_cursor.block < Self::BLOCKS - 1
+            {
+                self.cursor.block += 1;
+                self.cursor.column = 0;
+                self.fix_cursor_highlight();
             }
             return;
         }
