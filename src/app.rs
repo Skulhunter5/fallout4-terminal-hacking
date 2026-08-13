@@ -119,36 +119,37 @@ impl App {
         if self.top_widget.locked_out() {
             return;
         }
-        match key_event.code {
-            KeyCode::Char('e') => self.submit_element_under_cursor(),
-            // TODO: What happens when the player moves the cursor away from the mouse using
-            // array keys or wasd and then clicks the mouse (without moving it)?
-            // -> Mouse can no longer click until it is moved again. Though there seems to be a minor window where it
-            //    still can (as long as the cursor is still underneath the mouse cursor to a certain
-            //    extent), but that should probably be ignored.
-            // self.main_widget_clickable needs to be set accordingly. probably just set to false
-            // when moving the cursor using keys
+
+        // Submit selected
+        if KeyCode::Char('e') == key_event.code {
+            self.submit_element_under_cursor();
+            return;
+        }
+
+        // Cursor movement
+        let cursor_moved = match key_event.code {
             KeyCode::Up | KeyCode::Char('w') => {
                 self.main_widget.move_cursor_up();
-                self.right_widget
-                    .set_selected_string(self.main_widget.get_highlighted_string());
+                true
             }
             KeyCode::Down | KeyCode::Char('s') => {
                 self.main_widget.move_cursor_down();
-                self.right_widget
-                    .set_selected_string(self.main_widget.get_highlighted_string());
+                true
             }
             KeyCode::Left | KeyCode::Char('a') => {
                 self.main_widget.move_cursor_left();
-                self.right_widget
-                    .set_selected_string(self.main_widget.get_highlighted_string());
+                true
             }
             KeyCode::Right | KeyCode::Char('d') => {
                 self.main_widget.move_cursor_right();
-                self.right_widget
-                    .set_selected_string(self.main_widget.get_highlighted_string());
+                true
             }
-            _ => (),
+            _ => false,
+        };
+        if cursor_moved {
+            self.main_widget_clickable = false;
+            self.right_widget
+                .set_selected_string(self.main_widget.get_highlighted_string());
         }
     }
 
