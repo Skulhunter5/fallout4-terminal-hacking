@@ -1,6 +1,6 @@
 use std::io::stdout;
 
-use crate::app::App;
+use crate::app::{App, GameResult};
 use anyhow::Result;
 use ratatui::crossterm::{
     ExecutableCommand as _,
@@ -20,7 +20,14 @@ fn main() -> Result<()> {
     let app_result = App::default().run(&mut terminal);
     stdout().execute(DisableMouseCapture)?;
     ratatui::restore();
-    app_result.map_err(|e| e.into())
+    let game_result = app_result?;
+    match game_result {
+        GameResult::Terminated => (),
+        GameResult::LockedOut => println!("You've been locked out of the terminal."),
+        GameResult::Hacked => println!("You successfully hacked the terminal."),
+    }
+
+    Ok(())
 }
 
 impl Drop for App {

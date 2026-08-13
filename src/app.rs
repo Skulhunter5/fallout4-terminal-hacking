@@ -41,6 +41,13 @@ const fn p2o(position: Position) -> Offset {
     Offset::new(position.x as i32, position.y as i32)
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum GameResult {
+    Terminated,
+    LockedOut,
+    Hacked,
+}
+
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
@@ -50,6 +57,7 @@ pub struct App {
     main_widget: MainWidget,
     widget_areas: Option<(Option<Rect>, Rect, Rect, Rect)>,
     main_widget_clickable: bool,
+    result: GameResult,
 }
 
 impl Default for App {
@@ -68,12 +76,13 @@ impl Default for App {
             main_widget,
             widget_areas: None,
             main_widget_clickable: false,
+            result: GameResult::Terminated,
         }
     }
 }
 
 impl App {
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<GameResult> {
         let Size {
             width: columns,
             height: rows,
@@ -84,7 +93,7 @@ impl App {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
         }
-        Ok(())
+        Ok(self.result)
     }
 
     fn draw(&self, frame: &mut Frame) {
@@ -185,6 +194,9 @@ impl App {
             },
             ClickResultKind::Word { likeness } => {
                 let lockout = self.top_widget.remove_attempt();
+                if lockout {
+                    self.result = GameResult::LockedOut;
+                }
                 Submission {
                     string: click_result.string,
                     kind: SubmissionKind::Word { likeness, lockout },
@@ -211,7 +223,11 @@ impl App {
                     }
                 }
             }
-            ClickResultKind::Solution => todo!("solution found"),
+            ClickResultKind::Solution => {
+                self.result = GameResult::Hacked;
+                self.exit();
+                return;
+            }
         };
         self.right_widget.add_to_history(&submission);
     }
