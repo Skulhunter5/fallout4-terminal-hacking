@@ -372,7 +372,8 @@ impl MainWidget {
 
     pub fn get_highlighted_string(&self) -> String {
         match self.highlight {
-            CursorHighlight::Char(position) => self.content[self.cursor.row]
+            CursorHighlight::Char(position) => self.content
+                [self.cursor.block * Self::ROWS_PER_BLOCK + self.cursor.row]
                 .chars()
                 .nth(position % Self::CHARACTERS_PER_ROW)
                 .unwrap()
