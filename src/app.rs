@@ -1,6 +1,6 @@
 use std::io;
 
-use rand::RngExt;
+use rand::{RngExt, rngs::ThreadRng};
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
@@ -44,7 +44,7 @@ const fn p2o(position: Position) -> Offset {
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
-    rng: rand::rngs::ThreadRng,
+    rng: ThreadRng,
     top_widget: TopWidget,
     right_widget: RightWidget,
     main_widget: MainWidget,
