@@ -1,87 +1,93 @@
 use std::io;
 
-use rand::{RngExt, rngs::ThreadRng};
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     crossterm::{
         self,
-        event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind},
+        event::{Event, KeyCode, KeyEvent, MouseEvent},
     },
-    layout::{Constraint, Offset, Position, Rect, Size},
+    layout::{Constraint, Offset, Rect, Size},
     style::{Color, Style},
     text::Text,
     widgets::{Block, BorderType, Widget},
 };
 
 use crate::{
-    main_widget::{ClickResultKind, MainWidget},
-    right_widget::{RightWidget, Submission, SubmissionKind},
-    top_widget::TopWidget,
+    game::{self, Game, GameResult},
+    menu::{Menu, MenuResult},
 };
 
-const _: () = {
-    assert!(MainWidget::WIDTH + WIDGET_SPACING + RightWidget::WIDTH == TopWidget::WIDTH);
-};
-const WIDGET_SPACING: u16 = 1;
-const TERMINAL_WIDTH: u16 = MainWidget::WIDTH + WIDGET_SPACING + RightWidget::WIDTH;
-const TERMINAL_HEIGHT: u16 = MainWidget::HEIGHT + WIDGET_SPACING + TopWidget::HEIGHT;
-
-const TOP_POS: Position = Position::new(0, 0);
-const MAIN_POS: Position = Position {
-    x: TOP_POS.x,
-    y: TOP_POS.y + TopWidget::HEIGHT + WIDGET_SPACING,
-};
-const RIGHT_POS: Position = Position {
-    x: MAIN_POS.x + MainWidget::WIDTH + WIDGET_SPACING,
-    y: MAIN_POS.y,
-};
-
-const fn p2o(position: Position) -> Offset {
-    Offset::new(position.x as i32, position.y as i32)
+pub trait Scene
+where
+    for<'a> &'a Self: Widget,
+{
+    fn handle_key_event(&mut self, key_event: KeyEvent) {
+        let _ = key_event;
+    }
+    fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
+        let _ = mouse_event;
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum GameResult {
-    Terminated,
-    LockedOut,
-    Hacked,
+#[derive(Debug)]
+enum ActiveScene {
+    Menu(Menu),
+    Game(Game),
+}
+
+impl Scene for ActiveScene {
+    fn handle_key_event(&mut self, key_event: KeyEvent) {
+        match self {
+            Self::Menu(menu) => menu.handle_key_event(key_event),
+            Self::Game(game) => game.handle_key_event(key_event),
+        }
+    }
+
+    fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
+        match self {
+            Self::Menu(menu) => menu.handle_mouse_event(mouse_event),
+            Self::Game(game) => game.handle_mouse_event(mouse_event),
+        }
+    }
+}
+
+impl Widget for &ActiveScene {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        match self {
+            ActiveScene::Menu(menu) => menu.render(area, buf),
+            ActiveScene::Game(game) => game.render(area, buf),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
-    rng: ThreadRng,
-    top_widget: TopWidget,
-    right_widget: RightWidget,
-    main_widget: MainWidget,
-    widget_areas: Option<(Option<Rect>, Rect, Rect, Rect)>,
-    main_widget_clickable: bool,
-    result: GameResult,
+    active_scene: ActiveScene,
+    areas: Option<(Option<Rect>, Rect)>,
 }
 
 impl Default for App {
     fn default() -> Self {
-        let mut rng = rand::rng();
-        let top_widget = TopWidget::default();
-        let main_widget = MainWidget::new_random(&mut rng);
-        let mut right_widget = RightWidget::default();
-        right_widget.set_selected_string(main_widget.get_highlighted_string());
-
-        Self {
-            should_exit: false,
-            rng,
-            top_widget,
-            right_widget,
-            main_widget,
-            widget_areas: None,
-            main_widget_clickable: false,
-            result: GameResult::Terminated,
-        }
+        Self::new()
     }
 }
 
 impl App {
+    pub const TERMINAL_WIDTH: u16 = game::TOTAL_WIDTH;
+    pub const TERMINAL_HEIGHT: u16 = game::TOTAL_HEIGHT;
+
+    pub fn new() -> Self {
+        let menu = Menu::new();
+
+        Self {
+            should_exit: false,
+            active_scene: ActiveScene::Menu(menu),
+            areas: None,
+        }
+    }
+
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<GameResult> {
         let Size {
             width: columns,
@@ -89,148 +95,41 @@ impl App {
         } = terminal.size()?;
         self.resize(columns, rows);
 
-        while !self.should_exit {
+        'main_loop: while !self.should_exit {
             terminal.draw(|frame| self.draw(frame))?;
-            self.handle_events()?;
+            self.handle_event(crossterm::event::read()?);
+
+            match &self.active_scene {
+                ActiveScene::Menu(menu) => {
+                    if let Some(menu_result) = menu.should_exit() {
+                        match menu_result {
+                            MenuResult::Exit => self.exit(),
+                            MenuResult::Selected(_selected_option) => {
+                                // TODO: start game with the corresponding difficulty
+                                self.active_scene = ActiveScene::Game(Game::default());
+                                continue 'main_loop;
+                            }
+                        }
+                    }
+                }
+                ActiveScene::Game(game) => {
+                    if let Some(game_result) = game.should_exit() {
+                        match game_result {
+                            GameResult::Terminated => {
+                                self.active_scene = ActiveScene::Menu(Menu::new());
+                                continue 'main_loop;
+                            }
+                            GameResult::Hacked | GameResult::LockedOut => return Ok(game_result),
+                        }
+                    }
+                }
+            }
         }
-        Ok(self.result)
+        Ok(GameResult::Terminated)
     }
 
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
-    }
-
-    fn handle_events(&mut self) -> io::Result<()> {
-        match crossterm::event::read()? {
-            Event::Key(key_event) => self.handle_key_event(key_event),
-            Event::Mouse(mouse_event) => self.handle_mouse_event(mouse_event),
-            Event::Resize(columns, rows) => self.resize(columns, rows),
-            _ => (),
-        }
-        Ok(())
-    }
-
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
-            _ => (),
-        }
-
-        if self.top_widget.locked_out() {
-            return;
-        }
-
-        // Submit selected
-        if KeyCode::Char('e') == key_event.code {
-            self.submit_element_under_cursor();
-            return;
-        }
-
-        // Cursor movement
-        let cursor_moved = match key_event.code {
-            KeyCode::Up | KeyCode::Char('w') => {
-                self.main_widget.move_cursor_up();
-                true
-            }
-            KeyCode::Down | KeyCode::Char('s') => {
-                self.main_widget.move_cursor_down();
-                true
-            }
-            KeyCode::Left | KeyCode::Char('a') => {
-                self.main_widget.move_cursor_left();
-                true
-            }
-            KeyCode::Right | KeyCode::Char('d') => {
-                self.main_widget.move_cursor_right();
-                true
-            }
-            _ => false,
-        };
-        if cursor_moved {
-            self.main_widget_clickable = false;
-            self.right_widget
-                .set_selected_string(self.main_widget.get_highlighted_string());
-        }
-    }
-
-    fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
-        if self.top_widget.locked_out() {
-            return;
-        }
-        match mouse_event.kind {
-            MouseEventKind::Moved => {
-                let Some((_, _, main_area, _)) = &self.widget_areas else {
-                    return;
-                };
-                let column = mouse_event.column;
-                let row = mouse_event.row;
-                if !main_area.contains(Position::new(column, row)) {
-                    self.main_widget_clickable = false;
-                    return;
-                }
-                self.main_widget_clickable = self
-                    .main_widget
-                    .move_cursor(Position::new(column - main_area.x, row - main_area.y));
-                self.right_widget
-                    .set_selected_string(self.main_widget.get_highlighted_string());
-            }
-            MouseEventKind::Down(mouse_button) => match mouse_button {
-                MouseButton::Left | MouseButton::Right => {
-                    if self.main_widget_clickable {
-                        self.submit_element_under_cursor();
-                    }
-                }
-                MouseButton::Middle => (),
-            },
-            _ => (),
-        }
-    }
-
-    fn submit_element_under_cursor(&mut self) {
-        let click_result = self.main_widget.click();
-        let submission = match click_result.kind {
-            ClickResultKind::Error => Submission {
-                string: click_result.string,
-                kind: SubmissionKind::Error,
-            },
-            ClickResultKind::Word { likeness } => {
-                let lockout = self.top_widget.remove_attempt();
-                if lockout {
-                    self.result = GameResult::LockedOut;
-                }
-                Submission {
-                    string: click_result.string,
-                    kind: SubmissionKind::Word { likeness, lockout },
-                }
-            }
-            ClickResultKind::Pair => {
-                // RESEARCH: What's the correct chance
-                // RESET_TRIES_CHANCE = (numerator, denominator)
-                const RESET_TRIES_CHANCE: (u32, u32) = (1, 10);
-                if self
-                    .rng
-                    .random_ratio(RESET_TRIES_CHANCE.0, RESET_TRIES_CHANCE.1)
-                {
-                    self.top_widget.reset_attempts();
-                    Submission {
-                        kind: SubmissionKind::AttemptsReset,
-                        string: click_result.string,
-                    }
-                } else {
-                    self.main_widget.remove_dud(&mut self.rng);
-                    Submission {
-                        kind: SubmissionKind::DudRemoved,
-                        string: click_result.string,
-                    }
-                }
-            }
-            ClickResultKind::Solution => {
-                self.result = GameResult::Hacked;
-                self.exit();
-                return;
-            }
-        };
-        self.right_widget.add_to_history(&submission);
     }
 
     fn resize(&mut self, columns: u16, rows: u16) {
@@ -241,37 +140,73 @@ impl App {
             height: rows,
         };
 
-        if area.width < TERMINAL_WIDTH || area.height < TERMINAL_HEIGHT {
-            self.widget_areas = None;
+        if area.width < Self::TERMINAL_WIDTH || area.height < Self::TERMINAL_HEIGHT {
+            self.areas = None;
             return;
         }
 
         let (border_area, terminal_area) =
-            if area.width >= TERMINAL_WIDTH + 4 && area.height >= TERMINAL_HEIGHT + 2 {
+            if area.width >= Self::TERMINAL_WIDTH + 4 && area.height >= Self::TERMINAL_HEIGHT + 2 {
                 let border_area = area.centered(
-                    Constraint::Length(TERMINAL_WIDTH + 4),
-                    Constraint::Length(TERMINAL_HEIGHT + 2),
+                    Constraint::Length(Self::TERMINAL_WIDTH + 4),
+                    Constraint::Length(Self::TERMINAL_HEIGHT + 2),
                 );
                 let block = Block::bordered().border_type(BorderType::Rounded);
-                let terminal_area = block.inner(border_area);
-                (Some(border_area), terminal_area.offset(Offset::new(1, 0)))
+                let inner_area = block.inner(border_area);
+                let terminal_area = inner_area
+                    .resize(Size::new(inner_area.width - 2, inner_area.height))
+                    .offset(Offset::new(1, 0));
+                (Some(border_area), terminal_area)
             } else {
                 (
                     None,
                     area.centered(
-                        Constraint::Length(TERMINAL_WIDTH),
-                        Constraint::Length(TERMINAL_HEIGHT),
+                        Constraint::Length(Self::TERMINAL_WIDTH),
+                        Constraint::Length(Self::TERMINAL_HEIGHT),
                     ),
                 )
             };
 
-        let top_area = terminal_area.resize(TopWidget::SIZE).offset(p2o(TOP_POS));
-        let main_area = terminal_area.resize(MainWidget::SIZE).offset(p2o(MAIN_POS));
-        let right_area = terminal_area
-            .resize(RightWidget::SIZE)
-            .offset(p2o(RIGHT_POS));
+        self.areas = Some((border_area, terminal_area));
+    }
 
-        self.widget_areas = Some((border_area, top_area, main_area, right_area));
+    fn handle_event(&mut self, event: Event) {
+        match event {
+            Event::Key(key_event) => match key_event.code {
+                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                    self.exit();
+                    return;
+                }
+                _ => (),
+            },
+            Event::Resize(columns, rows) => {
+                self.resize(columns, rows);
+                return;
+            }
+            _ => (),
+        }
+
+        let Some((_, terminal_area)) = &self.areas else {
+            return;
+        };
+        match event {
+            Event::Key(key_event) => self.active_scene.handle_key_event(key_event),
+            Event::Mouse(mut mouse_event) => {
+                // TODO: translate mouse events to correct area
+                let col_start = terminal_area.x;
+                let col_end = terminal_area.x + terminal_area.width;
+                let row_start = terminal_area.y;
+                let row_end = terminal_area.y + terminal_area.height;
+                if (col_start..col_end).contains(&mouse_event.column)
+                    && (row_start..row_end).contains(&mouse_event.row)
+                {
+                    mouse_event.column -= col_start;
+                    mouse_event.row -= row_start;
+                    self.active_scene.handle_mouse_event(mouse_event);
+                }
+            }
+            _ => (),
+        }
     }
 
     fn exit(&mut self) {
@@ -283,10 +218,13 @@ impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         buf.set_style(area, Style::new().fg(Color::Green));
 
-        let Some((border_area, top_area, main_area, right_area)) = self.widget_areas else {
+        let Some((border_area, terminal_area)) = self.areas else {
             let warning_text = Text::raw(format!(
                 "terminal too small\n(is {}x{}, needs {}x{})",
-                area.width, area.height, TERMINAL_WIDTH, TERMINAL_HEIGHT
+                area.width,
+                area.height,
+                App::TERMINAL_WIDTH,
+                App::TERMINAL_HEIGHT
             ))
             .centered();
             let warning_area =
@@ -300,8 +238,6 @@ impl Widget for &App {
             block.render(border_area, buf);
         }
 
-        self.top_widget.render(top_area, buf);
-        self.main_widget.render(main_area, buf);
-        self.right_widget.render(right_area, buf);
+        self.active_scene.render(terminal_area, buf);
     }
 }
