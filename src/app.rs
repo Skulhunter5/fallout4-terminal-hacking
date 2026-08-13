@@ -104,10 +104,29 @@ impl App {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => self.exit(),
             KeyCode::Char('e') => self.submit_element_under_cursor(),
-            KeyCode::Up | KeyCode::Char('w') => self.main_widget.move_cursor_up(),
-            KeyCode::Down | KeyCode::Char('s') => self.main_widget.move_cursor_down(),
-            KeyCode::Left | KeyCode::Char('a') => self.main_widget.move_cursor_left(),
-            KeyCode::Right | KeyCode::Char('d') => self.main_widget.move_cursor_right(),
+            // RESEARCH: What happens when the player moves the cursor away from the mouse using
+            // array keys or wasd and then clicks the mouse (without moving it)?
+            // - self.main_widget_clickable needs to be set accordingly
+            KeyCode::Up | KeyCode::Char('w') => {
+                self.main_widget.move_cursor_up();
+                self.right_widget
+                    .set_selected_string(self.main_widget.get_highlighted_string());
+            }
+            KeyCode::Down | KeyCode::Char('s') => {
+                self.main_widget.move_cursor_down();
+                self.right_widget
+                    .set_selected_string(self.main_widget.get_highlighted_string());
+            }
+            KeyCode::Left | KeyCode::Char('a') => {
+                self.main_widget.move_cursor_left();
+                self.right_widget
+                    .set_selected_string(self.main_widget.get_highlighted_string());
+            }
+            KeyCode::Right | KeyCode::Char('d') => {
+                self.main_widget.move_cursor_right();
+                self.right_widget
+                    .set_selected_string(self.main_widget.get_highlighted_string());
+            }
             _ => (),
         }
     }
