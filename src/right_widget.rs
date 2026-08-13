@@ -14,7 +14,7 @@ pub struct Submission {
 
 #[derive(Debug)]
 pub enum SubmissionKind {
-    Char,
+    Error,
     Word { likeness: usize, lockout: bool },
     DudRemoved,
     AttemptsReset,
@@ -41,7 +41,7 @@ impl RightWidget {
     pub fn add_to_history(&mut self, submission: &Submission) {
         self.history.push(format!(">{}", submission.string));
         match submission.kind {
-            SubmissionKind::Char => self.history.push(">Error".to_owned()),
+            SubmissionKind::Error => self.history.push(">Error".to_owned()),
             SubmissionKind::Word { likeness, lockout } => {
                 self.history.push(">Entry denied.".to_owned());
                 if lockout {

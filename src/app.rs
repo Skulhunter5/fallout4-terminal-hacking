@@ -189,9 +189,9 @@ impl App {
     fn submit_element_under_cursor(&mut self) {
         let click_result = self.main_widget.click();
         let submission = match click_result.kind {
-            ClickResultKind::Char => Submission {
+            ClickResultKind::Error => Submission {
                 string: click_result.string,
-                kind: SubmissionKind::Char,
+                kind: SubmissionKind::Error,
             },
             ClickResultKind::Word { likeness } => {
                 let lockout = self.top_widget.remove_attempt();

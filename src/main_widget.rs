@@ -67,7 +67,7 @@ pub struct ClickResult {
 
 #[derive(Debug)]
 pub enum ClickResultKind {
-    Char,
+    Error,
     Word { likeness: usize },
     Pair,
     Solution,
@@ -469,7 +469,7 @@ impl MainWidget {
         let string = self.get_highlighted_string();
         match self.highlight {
             CursorHighlight::Char { .. } => ClickResult {
-                kind: ClickResultKind::Char,
+                kind: ClickResultKind::Error,
                 string,
             },
             CursorHighlight::Word { .. } => {
@@ -487,16 +487,16 @@ impl MainWidget {
             }
             CursorHighlight::Pair { start_index, .. } => {
                 if self.found_pairs.contains(&start_index) {
-                    // TODO: Pairs aren't automatically deselected on click. What happens when you
-                    // click it again right afterwards without moving the cursor in between?
-                    // -> Still submits the whole pair but prints ">Error." like with a single char.
-                    // probably rename ClickResultKind::Char and SubmissionResultKind::Char to XX::Error
-                    todo!("pair submitted twice");
-                }
-                self.found_pairs.push(start_index);
-                ClickResult {
-                    kind: ClickResultKind::Pair,
-                    string,
+                    ClickResult {
+                        kind: ClickResultKind::Error,
+                        string,
+                    }
+                } else {
+                    self.found_pairs.push(start_index);
+                    ClickResult {
+                        kind: ClickResultKind::Pair,
+                        string,
+                    }
                 }
             }
         }
