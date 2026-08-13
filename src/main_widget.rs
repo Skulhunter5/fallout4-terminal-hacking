@@ -181,7 +181,7 @@ impl MainWidget {
         // This needs to be investigated further though since the same chapter also mentions
         // "x/y correct", which seemed to be the fact for earlier games. In Fallout 4 it says
         // "Likeness=x".
-        const WORD_COUNT: usize = 10;
+        const WORD_COUNT: usize = 15;
 
         let mut content = Vec::with_capacity(Self::ROWS_PER_BLOCK * Self::BLOCKS);
         for _ in 0..Self::BLOCKS {
