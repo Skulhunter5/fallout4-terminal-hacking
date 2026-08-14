@@ -19,6 +19,8 @@ mod wordlists;
 // - refactor modules into a hierarchy (e.g. game::top_widget)
 // - move smaller structs and enums (e.g. Difficulty) into their own modules
 
+// TODO: Refactor headline to be global to the terminal and reused across menu and game.
+
 fn main() -> Result<()> {
     let mut terminal = ratatui::init();
     stdout().execute(EnableMouseCapture)?;
