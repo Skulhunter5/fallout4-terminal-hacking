@@ -133,6 +133,8 @@ impl App {
         Ok(GameResult::Terminated)
     }
 
+    // TODO: Save selected difficulty so going back from the minigame doesn't reset the cursor in
+    // the menu
     fn handle_scene_transition(&mut self) -> Option<GameResult> {
         match &self.active_scene {
             ActiveScene::Menu(menu) => {
