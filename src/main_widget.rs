@@ -434,6 +434,7 @@ impl MainWidget {
         if let Some(closing_char) = Self::PAIRS.iter().find_map(|(opening_char, closing_char)| {
             (*opening_char == char_under_cursor).then_some(closing_char)
         }) && !self.found_pairs.contains(&cursor_index)
+            && self.words.len() > 1
         {
             for (i, c) in self.content[self.cursor.row_index()][self.cursor.column..]
                 .chars()
@@ -503,12 +504,7 @@ impl MainWidget {
     }
 
     pub fn remove_dud(&mut self, rng: &mut impl Rng) {
-        if self.words.len() == 1 {
-            // TODO: What happens if there aren't any duds left?
-            // -> Unused pairs aren't even highlighted anymore and the single opening characters
-            //    simply cause an error when submitted.
-            todo!("no dud left to remove");
-        }
+        assert!(self.words.len() > 1);
 
         let (word, word_position) = loop {
             let word_index = rng.random_range(0..self.words.len());
