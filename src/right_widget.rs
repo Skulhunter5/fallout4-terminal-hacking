@@ -1,6 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Offset, Rect, Size},
+    text::ToSpan,
     widgets::Widget,
 };
 
@@ -21,10 +22,23 @@ pub enum SubmissionKind {
     Solution,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RightWidget {
     selected_string: String,
     history: Vec<String>,
+    cursor_tick: usize,
+    show_cursor: bool,
+}
+
+impl Default for RightWidget {
+    fn default() -> Self {
+        Self {
+            selected_string: String::new(),
+            history: Vec::new(),
+            cursor_tick: 0,
+            show_cursor: true,
+        }
+    }
 }
 
 impl RightWidget {
@@ -32,6 +46,9 @@ impl RightWidget {
     pub const WIDTH: u16 = ">Entry denied.".len() as u16;
     pub const HEIGHT: u16 = MainWidget::HEIGHT;
     pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
+
+    const CURSOR: char = '■';
+    // const CURSOR: char = '█';
 
     pub fn set_selected_string(&mut self, string: String) {
         self.selected_string = string;
@@ -55,6 +72,16 @@ impl RightWidget {
             SubmissionKind::Solution => todo!(),
         };
     }
+
+    pub fn tick(&mut self) -> bool {
+        self.cursor_tick += 1;
+        if self.cursor_tick == 3 {
+            self.cursor_tick = 0;
+            self.show_cursor = !self.show_cursor;
+            return true;
+        }
+        false
+    }
 }
 
 impl Widget for &RightWidget {
@@ -65,9 +92,13 @@ impl Widget for &RightWidget {
             .resize(Size::new(area.width, 1))
             .offset(Offset::new(0, area.height as i32 - 1));
         self.selected_string.as_str().render(cmd_area, buf);
-        // TODO: render blinking cursor after selected string line
-        // - block cursor. same size as for remaining attempts
-        // - speed unclear. somewhere between 2 and 4 times per second
+        if self.show_cursor {
+            let cursor_area = cmd_area
+                .resize(Size::new(1, 1))
+                .offset(Offset::new(self.selected_string.len() as i32, 0));
+            // Alternative cursor: '▏'.to_span().reversed().render(cursor_area, buf);
+            RightWidget::CURSOR.to_span().render(cursor_area, buf);
+        }
 
         // It might be unnecessary to have wrapping logic because all output text seems to be
         // designed so that it always fits into one row.

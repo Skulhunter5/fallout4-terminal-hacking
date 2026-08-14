@@ -1,4 +1,7 @@
-use std::io;
+use std::{
+    io,
+    time::{Duration, Instant},
+};
 
 use ratatui::{
     DefaultTerminal, Frame,
@@ -22,6 +25,8 @@ pub trait Scene
 where
     for<'a> &'a Self: Widget,
 {
+    fn tick(&mut self) -> bool;
+
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         let _ = key_event;
     }
@@ -37,6 +42,13 @@ enum ActiveScene {
 }
 
 impl Scene for ActiveScene {
+    fn tick(&mut self) -> bool {
+        match self {
+            Self::Menu(menu) => menu.tick(),
+            Self::Game(game) => game.tick(),
+        }
+    }
+
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match self {
             Self::Menu(menu) => menu.handle_key_event(key_event),
@@ -78,6 +90,8 @@ impl App {
     pub const TERMINAL_WIDTH: u16 = game::TOTAL_WIDTH;
     pub const TERMINAL_HEIGHT: u16 = game::TOTAL_HEIGHT;
 
+    pub const TICK_TIME: Duration = Duration::from_millis(100);
+
     pub fn new() -> Self {
         let menu = Menu::new();
 
@@ -94,38 +108,56 @@ impl App {
             height: rows,
         } = terminal.size()?;
         self.resize(columns, rows);
+        terminal.draw(|frame| self.draw(frame))?;
 
-        'main_loop: while !self.should_exit {
-            terminal.draw(|frame| self.draw(frame))?;
-            self.handle_event(crossterm::event::read()?);
-
-            match &self.active_scene {
-                ActiveScene::Menu(menu) => {
-                    if let Some(menu_result) = menu.should_exit() {
-                        match menu_result {
-                            MenuResult::Exit => self.exit(),
-                            MenuResult::Selected(_selected_option) => {
-                                // TODO: start game with the corresponding difficulty
-                                self.active_scene = ActiveScene::Game(Game::default());
-                                continue 'main_loop;
-                            }
-                        }
-                    }
+        let mut last_tick = Instant::now();
+        'main_loop: loop {
+            if last_tick.elapsed() >= Self::TICK_TIME {
+                if self.active_scene.tick() {
+                    terminal.draw(|frame| self.draw(frame))?;
                 }
-                ActiveScene::Game(game) => {
-                    if let Some(game_result) = game.should_exit() {
-                        match game_result {
-                            GameResult::Terminated => {
-                                self.active_scene = ActiveScene::Menu(Menu::new());
-                                continue 'main_loop;
-                            }
-                            GameResult::Hacked | GameResult::LockedOut => return Ok(game_result),
+                last_tick = Instant::now();
+            }
+
+            if crossterm::event::poll(Self::TICK_TIME.saturating_sub(last_tick.elapsed()))? {
+                self.handle_event(crossterm::event::read()?);
+                if self.should_exit {
+                    break 'main_loop;
+                }
+                if let Some(result) = self.handle_scene_transition() {
+                    return Ok(result);
+                }
+                terminal.draw(|frame| self.draw(frame))?;
+            }
+        }
+        Ok(GameResult::Terminated)
+    }
+
+    fn handle_scene_transition(&mut self) -> Option<GameResult> {
+        match &self.active_scene {
+            ActiveScene::Menu(menu) => {
+                if let Some(menu_result) = menu.should_exit() {
+                    match menu_result {
+                        MenuResult::Exit => self.exit(),
+                        MenuResult::Selected(_selected_option) => {
+                            // TODO: start game with the corresponding difficulty
+                            self.active_scene = ActiveScene::Game(Game::default());
                         }
                     }
                 }
             }
+            ActiveScene::Game(game) => {
+                if let Some(game_result) = game.should_exit() {
+                    match game_result {
+                        GameResult::Terminated => {
+                            self.active_scene = ActiveScene::Menu(Menu::new());
+                        }
+                        GameResult::Hacked | GameResult::LockedOut => return Some(game_result),
+                    }
+                }
+            }
         }
-        Ok(GameResult::Terminated)
+        None
     }
 
     fn draw(&self, frame: &mut Frame) {
@@ -192,7 +224,6 @@ impl App {
         match event {
             Event::Key(key_event) => self.active_scene.handle_key_event(key_event),
             Event::Mouse(mut mouse_event) => {
-                // TODO: translate mouse events to correct area
                 let col_start = terminal_area.x;
                 let col_end = terminal_area.x + terminal_area.width;
                 let row_start = terminal_area.y;

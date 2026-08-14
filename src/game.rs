@@ -20,12 +20,12 @@ const WIDGET_SPACING: u16 = 1;
 pub const TOTAL_WIDTH: u16 = MainWidget::WIDTH + WIDGET_SPACING + RightWidget::WIDTH;
 pub const TOTAL_HEIGHT: u16 = MainWidget::HEIGHT + WIDGET_SPACING + TopWidget::HEIGHT;
 
-const TOP_POS: Position = Position::new(0, 0);
-const MAIN_POS: Position = Position {
+pub const TOP_POS: Position = Position::new(0, 0);
+pub const MAIN_POS: Position = Position {
     x: TOP_POS.x,
     y: TOP_POS.y + TopWidget::HEIGHT + WIDGET_SPACING,
 };
-const RIGHT_POS: Position = Position {
+pub const RIGHT_POS: Position = Position {
     x: MAIN_POS.x + MainWidget::WIDTH + WIDGET_SPACING,
     y: MAIN_POS.y,
 };
@@ -133,6 +133,10 @@ impl Game {
 }
 
 impl Scene for Game {
+    fn tick(&mut self) -> bool {
+        self.right_widget.tick()
+    }
+
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         if key_event.code == KeyCode::Tab {
             self.exit(GameResult::Terminated);

@@ -69,6 +69,10 @@ impl Menu {
 }
 
 impl Scene for Menu {
+    fn tick(&mut self) -> bool {
+        false
+    }
+
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         if key_event.code == KeyCode::Tab {
             self.exit(MenuResult::Exit);
