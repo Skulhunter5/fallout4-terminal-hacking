@@ -55,14 +55,6 @@ impl Menu {
         self.result.clone()
     }
 
-    fn set_selected(&mut self, selected: usize) -> bool {
-        if self.selected == selected {
-            return false;
-        }
-        self.selected = selected;
-        true
-    }
-
     fn submit_selection(&mut self) {
         self.exit(MenuResult::Selected(self.options[self.selected].clone()))
     }
@@ -84,27 +76,10 @@ impl Scene for Menu {
             return;
         }
 
-        // TODO: Does `clickable` depend on movement input or actual movement? I.e. does it
-        // matter whether the user is trying to move up above the first option or down below the
-        // last option?
-        // -> There's actually seems to be no limitation for mouse clicking in menus. You can freely
-        //    move the cursor up and down and still click with the mouse. It still selects the
-        //    cursor though. But you do have to be within the area of the options; going above or
-        //    below before clicking doesn't work.
-        //    While the mouse is not over any option, the mouse can't be clicked
         match key_event.code {
-            KeyCode::Up | KeyCode::Char('w') => {
-                let selection_changed = self.set_selected(self.selected.saturating_sub(1));
-                if selection_changed {
-                    self.clickable = false;
-                }
-            }
+            KeyCode::Up | KeyCode::Char('w') => self.selected = self.selected.saturating_sub(1),
             KeyCode::Down | KeyCode::Char('s') => {
-                let selection_changed =
-                    self.set_selected(self.options.len().min(self.selected + 1));
-                if selection_changed {
-                    self.clickable = false;
-                }
+                self.selected = self.options.len().min(self.selected + 1)
             }
             _ => (),
         }
@@ -119,18 +94,11 @@ impl Scene for Menu {
                     .offset(Offset::new(OPTIONS_POS.x as i32, OPTIONS_POS.y as i32));
 
                 if options_area.contains(Position::new(mouse_event.column, mouse_event.row)) {
-                    let column = (mouse_event.column - options_area.x) as usize;
                     let row = (mouse_event.row - options_area.y) as usize;
-                    // TODO: Is this the correct behavior or does the whole row count as
-                    // selectable by the mouse?
-                    // -> Yes the whole row is selectable for each option
-                    if let Some(option) = self.options.get(row) {
-                        let option_width = option.chars().count() + "[]".chars().count();
-                        if column < option_width {
-                            self.selected = row;
-                            self.clickable = true;
-                            return;
-                        }
+                    if self.options.get(row).is_some() {
+                        self.selected = row;
+                        self.clickable = true;
+                        return;
                     }
                 }
                 self.clickable = false;
@@ -169,14 +137,9 @@ impl Widget for &Menu {
             .zip(options_area.rows())
             .enumerate()
             .for_each(|(i, (option, row_area))| {
-                // TODO: highlight the whole selected row, not just the width of the text
                 let line = format!("[{}]", option);
-                let line_width = line.chars().count() as u16;
                 if i == self.selected {
-                    buf.set_style(
-                        row_area.resize(Size::new(line_width, 1)),
-                        Style::new().reversed(),
-                    );
+                    buf.set_style(row_area, Style::new().reversed());
                 }
                 line.render(row_area, buf);
             });
