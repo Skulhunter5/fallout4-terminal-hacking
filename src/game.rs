@@ -40,7 +40,11 @@ pub enum Difficulty {
 
 // RESEARCH: Figure out the real word lengths.
 // It might be different word lengths possible within each difficulty tier, so it might require a
-// larger rework.
+// larger rework. Confirmed but not exhaustive:
+// -> novice: 4,5
+// -> advanced: 7
+// -> expert: 8
+// -> master:
 impl Difficulty {
     pub fn word_length(&self) -> usize {
         match self {

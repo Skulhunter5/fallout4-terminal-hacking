@@ -84,9 +84,14 @@ impl Scene for Menu {
             return;
         }
 
-        // RESEARCH: Does `clickable` depend on movement input or actual movement? I.e. does it
+        // TODO: Does `clickable` depend on movement input or actual movement? I.e. does it
         // matter whether the user is trying to move up above the first option or down below the
         // last option?
+        // -> There's actually seems to be no limitation for mouse clicking in menus. You can freely
+        //    move the cursor up and down and still click with the mouse. It still selects the
+        //    cursor though. But you do have to be within the area of the options; going above or
+        //    below before clicking doesn't work. (Maybe when then moving the cursor; not sure if I
+        //    tested that)
         match key_event.code {
             KeyCode::Up | KeyCode::Char('w') => {
                 let selection_changed = self.set_selected(self.selected.saturating_sub(1));
@@ -116,8 +121,10 @@ impl Scene for Menu {
                 if options_area.contains(Position::new(mouse_event.column, mouse_event.row)) {
                     let column = (mouse_event.column - options_area.x) as usize;
                     let row = (mouse_event.row - options_area.y) as usize;
-                    // RESEARCH: Is this the correct behavior or does the whole row count as
+                    // TODO: Is this the correct behavior or does the whole row count as
                     // selectable by the mouse?
+                    // -> Actually not just the whole row is selectable but instead, the whole row
+                    // is actually highlighted.
                     if let Some(option) = self.options.get(row) {
                         let option_width = option.chars().count() + "[]".chars().count();
                         if column < option_width {
@@ -144,9 +151,14 @@ impl Scene for Menu {
 
 impl Widget for &Menu {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        // TODO: improve headline
+        // - include the line "Initializing..." (maybe that's for holotapes)
+        // - Another example ingame: "Museum of Freedom Operations Terminal"
+        //   - Maybe something like "Fallout 4 Hacking Minigame"
         let head_area = area
             .resize(Size::new(area.width, HEAD_HEIGHT))
             .offset(Offset::new(HEAD_POS.x as i32, HEAD_POS.y as i32));
+        // TODO: Maybe add text line like "Choose a difficulty:" right above the options
         let options_area = area
             .resize(Size::new(area.width, area.height - head_area.height))
             .offset(Offset::new(OPTIONS_POS.x as i32, OPTIONS_POS.y as i32));
@@ -158,6 +170,7 @@ impl Widget for &Menu {
             .zip(options_area.rows())
             .enumerate()
             .for_each(|(i, (option, row_area))| {
+                // TODO: highlight the whole selected row, not just the width of the text
                 let line = format!("[{}]", option);
                 let line_width = line.chars().count() as u16;
                 if i == self.selected {
