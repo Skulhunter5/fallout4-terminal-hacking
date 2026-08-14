@@ -90,8 +90,8 @@ impl Scene for Menu {
         // -> There's actually seems to be no limitation for mouse clicking in menus. You can freely
         //    move the cursor up and down and still click with the mouse. It still selects the
         //    cursor though. But you do have to be within the area of the options; going above or
-        //    below before clicking doesn't work. (Maybe when then moving the cursor; not sure if I
-        //    tested that)
+        //    below before clicking doesn't work.
+        //    While the mouse is not over any option, the mouse can't be clicked
         match key_event.code {
             KeyCode::Up | KeyCode::Char('w') => {
                 let selection_changed = self.set_selected(self.selected.saturating_sub(1));
@@ -123,8 +123,7 @@ impl Scene for Menu {
                     let row = (mouse_event.row - options_area.y) as usize;
                     // TODO: Is this the correct behavior or does the whole row count as
                     // selectable by the mouse?
-                    // -> Actually not just the whole row is selectable but instead, the whole row
-                    // is actually highlighted.
+                    // -> Yes the whole row is selectable for each option
                     if let Some(option) = self.options.get(row) {
                         let option_width = option.chars().count() + "[]".chars().count();
                         if column < option_width {
