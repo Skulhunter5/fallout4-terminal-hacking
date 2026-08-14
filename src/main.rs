@@ -15,6 +15,10 @@ mod right_widget;
 mod top_widget;
 mod wordlists;
 
+// TODO: big refactor
+// - refactor modules into a hierarchy (e.g. game::top_widget)
+// - move smaller structs and enums (e.g. Difficulty) into their own modules
+
 fn main() -> Result<()> {
     let mut terminal = ratatui::init();
     stdout().execute(EnableMouseCapture)?;
