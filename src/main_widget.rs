@@ -504,7 +504,9 @@ impl MainWidget {
 
     pub fn remove_dud(&mut self, rng: &mut impl Rng) {
         if self.words.len() == 1 {
-            // RESEARCH: What happens if there aren't any duds left?
+            // TODO: What happens if there aren't any duds left?
+            // -> Unused pairs aren't even highlighted anymore and the single opening characters
+            //    simply cause an error when submitted.
             todo!("no dud left to remove");
         }
 
