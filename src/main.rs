@@ -13,7 +13,6 @@ mod main_widget;
 mod menu;
 mod right_widget;
 mod top_widget;
-#[allow(unused)]
 mod wordlists;
 
 fn main() -> Result<()> {

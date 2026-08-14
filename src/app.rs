@@ -17,7 +17,7 @@ use ratatui::{
 };
 
 use crate::{
-    game::{self, Game, GameResult},
+    game::{self, Difficulty, Game, GameResult},
     menu::{Menu, MenuResult},
 };
 
@@ -139,9 +139,9 @@ impl App {
                 if let Some(menu_result) = menu.should_exit() {
                     match menu_result {
                         MenuResult::Exit => self.exit(),
-                        MenuResult::Selected(_selected_option) => {
-                            // TODO: start game with the corresponding difficulty
-                            self.active_scene = ActiveScene::Game(Game::default());
+                        MenuResult::Selected(selected_option) => {
+                            let difficulty = selected_option.parse::<Difficulty>().unwrap();
+                            self.active_scene = ActiveScene::Game(Game::new(difficulty));
                         }
                     }
                 }

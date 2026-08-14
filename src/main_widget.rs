@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::wordlists;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 struct CursorPosition {
     block: usize,
     column: usize,
@@ -16,6 +16,10 @@ struct CursorPosition {
 }
 
 impl CursorPosition {
+    fn new(block: usize, column: usize, row: usize) -> Self {
+        Self { block, column, row }
+    }
+
     fn from_index(index: usize) -> Self {
         let block = index / MainWidget::CHARACTERS_PER_BLOCK;
         let block_rem = index % MainWidget::CHARACTERS_PER_BLOCK;
@@ -125,7 +129,7 @@ impl MainWidget {
     fn random_unique_words(rng: &mut impl Rng, word_length: usize, count: usize) -> Vec<String> {
         let mut words: Vec<&'static str> = Vec::with_capacity(count);
         let Some(wordlist) = wordlists::by_word_length(word_length) else {
-            panic!("valid word length should've been ensured before calling this function");
+            panic!("missing wordlist for words of length {}", word_length);
         };
         while words.len() < count {
             let word = wordlist[rng.random_range(0..wordlist.len())];
@@ -174,15 +178,11 @@ impl MainWidget {
         }
     }
 
-    fn random_content(rng: &mut impl Rng) -> (Vec<String>, Vec<(String, usize)>) {
-        const WORD_LENGTH: usize = 4;
-        // According to https://fallout.fandom.com/wiki/Hacking_(Fallout_4), the number of words
-        // depends on the Intelligence stat of the user directly.
-        // This needs to be investigated further though since the same chapter also mentions
-        // "x/y correct", which seemed to be the fact for earlier games. In Fallout 4 it says
-        // "Likeness=x".
-        const WORD_COUNT: usize = 15;
-
+    fn generate_content(
+        rng: &mut impl Rng,
+        word_length: usize,
+        word_count: usize,
+    ) -> (Vec<String>, Vec<(String, usize)>) {
         let mut content = Vec::with_capacity(Self::ROWS_PER_BLOCK * Self::BLOCKS);
         for _ in 0..Self::BLOCKS {
             for _ in 0..Self::ROWS_PER_BLOCK {
@@ -200,16 +200,16 @@ impl MainWidget {
             }
         }
 
-        let words = Self::random_unique_words(rng, WORD_LENGTH, WORD_COUNT);
+        let words = Self::random_unique_words(rng, word_length, word_count);
 
         let mut word_positions = Vec::with_capacity(words.len());
         for _ in 0..words.len() {
             'outer: loop {
                 let new_position =
-                    rng.random_range(0..(MainWidget::CHARACTERS_TOTAL - WORD_LENGTH));
+                    rng.random_range(0..(MainWidget::CHARACTERS_TOTAL - word_length));
                 'inner: for position in &word_positions {
-                    if new_position + WORD_LENGTH < *position
-                        || position + WORD_LENGTH < new_position
+                    if new_position + word_length < *position
+                        || position + word_length < new_position
                     {
                         continue 'inner;
                     } else {
@@ -230,15 +230,15 @@ impl MainWidget {
         (content, words)
     }
 
-    pub fn new_random(rng: &mut impl Rng) -> Self {
+    pub fn new(rng: &mut impl Rng, word_length: usize, word_count: usize) -> Self {
         let first_offset = Self::random_first_offset(rng);
-        let (content, words) = Self::random_content(rng);
+        let (content, words) = Self::generate_content(rng, word_length, word_count);
         let solution = words[rng.random_range(0..words.len())].0.clone();
 
         let mut s = Self {
             first_offset,
             content,
-            cursor: CursorPosition::default(),
+            cursor: CursorPosition::new(0, 0, 0),
             highlight: CursorHighlight::Char { index: 0 },
             words,
             solution,

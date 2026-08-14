@@ -2,7 +2,7 @@
 from wordfreq import top_n_list
 
 def main(out_dir):
-    wordlists = generate_wordlists([4, 5])
+    wordlists = generate_wordlists([4, 6, 8, 10])
     save_wordlists(out_dir, wordlists)
 
 def generate_wordlists(letter_counts):

@@ -31,13 +31,54 @@ pub const RIGHT_POS: Position = Position {
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Difficulty {
+    Novice,
+    Advanced,
+    Expert,
+    Master,
+}
+
+// RESEARCH: Figure out the real word lengths.
+// It might be different word lengths possible within each difficulty tier, so it might require a
+// larger rework.
+impl Difficulty {
+    pub fn word_length(&self) -> usize {
+        match self {
+            Self::Novice => 4,
+            Self::Advanced => 6,
+            Self::Expert => 8,
+            Self::Master => 10,
+        }
+    }
+}
+
+impl std::fmt::Display for Difficulty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::str::FromStr for Difficulty {
+    type Err = ();
+
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        Ok(match string {
+            "Novice" => Difficulty::Novice,
+            "Advanced" => Difficulty::Advanced,
+            "Expert" => Difficulty::Expert,
+            "Master" => Difficulty::Master,
+            _ => return Err(()),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameResult {
     Terminated,
     LockedOut,
     Hacked,
 }
 
-// TODO: implement difficulty options
 #[derive(Debug)]
 pub struct Game {
     should_exit: bool,
@@ -49,19 +90,23 @@ pub struct Game {
     result: GameResult,
 }
 
-impl Default for Game {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Game {
     const SIZE: Size = Size::new(TOTAL_WIDTH, TOTAL_HEIGHT);
 
-    pub fn new() -> Self {
+    pub fn new(difficulty: Difficulty) -> Self {
+        let word_length = difficulty.word_length();
+        // According to https://fallout.fandom.com/wiki/Hacking_(Fallout_4), the number of words
+        // depends on the Intelligence stat of the user directly.
+        // This needs to be investigated further though since the same chapter also mentions
+        // "x/y correct", which seemed to be the fact for earlier games. In Fallout 4 it says
+        // "Likeness=x".
+        const WORD_COUNT: usize = 15;
+
         let mut rng = rand::rng();
+
         let top_widget = TopWidget::default();
-        let main_widget = MainWidget::new_random(&mut rng);
+
+        let main_widget = MainWidget::new(&mut rng, word_length, WORD_COUNT);
         let mut right_widget = RightWidget::default();
         right_widget.set_selected_string(main_widget.get_highlighted_string());
 

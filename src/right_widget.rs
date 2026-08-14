@@ -42,7 +42,7 @@ impl Default for RightWidget {
 }
 
 impl RightWidget {
-    // TODO: figure out if this is actually the max width
+    // Research: Figure out if this is actually the max width
     pub const WIDTH: u16 = ">Entry denied.".len() as u16;
     pub const HEIGHT: u16 = MainWidget::HEIGHT;
     pub const SIZE: Size = Size::new(Self::WIDTH, Self::HEIGHT);
