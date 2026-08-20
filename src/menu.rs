@@ -24,7 +24,7 @@ pub enum MenuResult {
 pub struct Menu {
     head_line: String,
     result: Option<MenuResult>,
-    text: String,
+    options_text: String,
     selected: usize,
     options: Vec<String>,
     clickable: bool,
@@ -34,19 +34,18 @@ impl Menu {
     pub const WIDTH: u16 = App::TERMINAL_WIDTH;
     pub const HEIGHT: u16 = App::TERMINAL_HEIGHT;
 
-    pub fn new() -> Self {
-        let options = ["Novice", "Advanced", "Expert", "Master"]
-            .into_iter()
-            .map(|option| option.to_owned())
-            .collect();
-
+    pub fn new(
+        options: impl Into<Vec<String>>,
+        options_text: impl Into<String>,
+        preselected: usize,
+    ) -> Self {
         Self {
             head_line: "Welcome to ROBCO Industries (TM) Termlink\nFallout 4 Hacking Minigame"
                 .to_owned(),
             result: None,
-            text: "Choose a difficulty:".to_owned(),
-            selected: 0,
-            options,
+            options_text: options_text.into(),
+            selected: preselected,
+            options: options.into(),
             clickable: false,
         }
     }
@@ -83,7 +82,7 @@ impl Scene for Menu {
         match key_event.code {
             KeyCode::Up | KeyCode::Char('w') => self.selected = self.selected.saturating_sub(1),
             KeyCode::Down | KeyCode::Char('s') => {
-                self.selected = self.options.len().min(self.selected + 1)
+                self.selected = self.selected.saturating_add(1).min(self.options.len() - 1)
             }
             _ => (),
         }
@@ -96,7 +95,7 @@ impl Scene for Menu {
                 let options_area = area
                     .resize(Size::new(area.width, area.height - HEAD_HEIGHT - SPACING))
                     .offset(Offset::new(OPTIONS_POS.x as i32, OPTIONS_POS.y as i32));
-                let text_height = self.text.lines().count();
+                let text_height = self.options_text.lines().count();
                 let options_area = options_area
                     .resize(Size::new(
                         options_area.width,
@@ -138,10 +137,10 @@ impl Widget for &Menu {
 
         Text::from(self.head_line.as_str()).render(head_area, buf);
 
-        let text_height = self.text.lines().count();
+        let text_height = self.options_text.lines().count();
         options_area
             .rows()
-            .zip(self.text.lines())
+            .zip(self.options_text.lines())
             .for_each(|(row_area, text_line)| text_line.render(row_area, buf));
         options_area
             .rows()

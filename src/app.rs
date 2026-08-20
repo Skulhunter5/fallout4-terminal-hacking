@@ -37,28 +37,36 @@ where
 
 #[derive(Debug)]
 enum ActiveScene {
-    Menu(Menu),
+    MainMenu(Menu),
+    WordLengthMenu(Menu),
+    WordCountMenu(Menu),
     Game(Game),
 }
 
 impl Scene for ActiveScene {
     fn tick(&mut self) -> bool {
         match self {
-            Self::Menu(menu) => menu.tick(),
+            Self::MainMenu(menu) | Self::WordLengthMenu(menu) | Self::WordCountMenu(menu) => {
+                menu.tick()
+            }
             Self::Game(game) => game.tick(),
         }
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match self {
-            Self::Menu(menu) => menu.handle_key_event(key_event),
+            Self::MainMenu(menu) | Self::WordLengthMenu(menu) | Self::WordCountMenu(menu) => {
+                menu.handle_key_event(key_event)
+            }
             Self::Game(game) => game.handle_key_event(key_event),
         }
     }
 
     fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
         match self {
-            Self::Menu(menu) => menu.handle_mouse_event(mouse_event),
+            Self::MainMenu(menu) | Self::WordLengthMenu(menu) | Self::WordCountMenu(menu) => {
+                menu.handle_mouse_event(mouse_event)
+            }
             Self::Game(game) => game.handle_mouse_event(mouse_event),
         }
     }
@@ -67,17 +75,111 @@ impl Scene for ActiveScene {
 impl Widget for &ActiveScene {
     fn render(self, area: Rect, buf: &mut Buffer) {
         match self {
-            ActiveScene::Menu(menu) => menu.render(area, buf),
+            ActiveScene::MainMenu(menu)
+            | ActiveScene::WordLengthMenu(menu)
+            | ActiveScene::WordCountMenu(menu) => menu.render(area, buf),
             ActiveScene::Game(game) => game.render(area, buf),
         }
     }
 }
+
+struct MainMenu;
+
+impl MainMenu {
+    const OPTIONS_TEXT: &str = "What do you want to do?";
+
+    const OPTION_PLAY: &str = "Play";
+    const OPTION_WORD_LENGTH: &str = "Change Difficulty: Word Length";
+    const OPTION_WORD_COUNT: &str = "Change Difficulty: Word Count";
+    const OPTIONS: &[&str] = &[
+        Self::OPTION_PLAY,
+        Self::OPTION_WORD_LENGTH,
+        Self::OPTION_WORD_COUNT,
+    ];
+
+    fn create() -> ActiveScene {
+        let options = Self::OPTIONS
+            .iter()
+            .map(|option| (*option).to_owned())
+            .collect::<Vec<String>>();
+        let preselected = 0;
+        ActiveScene::MainMenu(Menu::new(options, Self::OPTIONS_TEXT, preselected))
+    }
+}
+
+struct WordLengthMenu;
+
+impl WordLengthMenu {
+    const OPTIONS_TEXT: &str = "Choose a difficulty:";
+    const OPTIONS: &[&str] = &["Novice (4)", "Advanced (6)", "Expert (8)", "Master (10)"];
+
+    const MAP: &[(&str, usize)] = &[
+        (Self::OPTIONS[0], 4),
+        (Self::OPTIONS[1], 6),
+        (Self::OPTIONS[2], 8),
+        (Self::OPTIONS[3], 10),
+    ];
+
+    fn option_to_word_length(option: &str) -> Option<usize> {
+        Self::MAP
+            .iter()
+            .find_map(|(opt, word_length)| (*opt == option).then_some(*word_length))
+    }
+
+    fn create(word_length: usize) -> ActiveScene {
+        let options = Self::OPTIONS
+            .iter()
+            .map(|option| (*option).to_owned())
+            .collect::<Vec<String>>();
+        let preselected = Self::MAP
+            .iter()
+            .position(|(_option, wl)| *wl == word_length)
+            .unwrap();
+        ActiveScene::WordLengthMenu(Menu::new(options, Self::OPTIONS_TEXT, preselected))
+    }
+}
+
+struct WordCountMenu;
+
+impl WordCountMenu {
+    const OPTIONS_TEXT: &str = "Choose the number of words:";
+    const OPTIONS: &[&str] = &[
+        "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+    ];
+
+    fn option_to_word_count(option: &str) -> Option<usize> {
+        option.parse::<usize>().ok()
+    }
+
+    fn create(word_length: usize) -> ActiveScene {
+        let options = Self::OPTIONS
+            .iter()
+            .map(|option| (*option).to_owned())
+            .collect::<Vec<String>>();
+        let preselected = Self::OPTIONS
+            .iter()
+            .position(|option| Self::option_to_word_count(option).unwrap() == word_length)
+            .unwrap();
+        ActiveScene::WordCountMenu(Menu::new(options, Self::OPTIONS_TEXT, preselected))
+    }
+}
+
+// TODO: Probably rework the menu system so that all menus can just be defined with all their transitions
+// and created once, as such and then be switched between in an easier way. No creating the menu you
+// want to go to on every transition.
+// - "Going back" (pressing TAB) could be automated behavior
+// - Define all options once. Create/Instatiate everything only once and then keep it, don't
+// recreate on every transition.
+// - Maybe a small callback function that is called when an option is selected
+//   - This can, for example, apply the selected difficulty option
+// - Define parent menu (or None)
 
 #[derive(Debug)]
 pub struct App {
     should_exit: bool,
     active_scene: ActiveScene,
     areas: Option<(Option<Rect>, Rect)>,
+    difficulty: Difficulty,
 }
 
 impl Default for App {
@@ -93,12 +195,11 @@ impl App {
     pub const TICK_TIME: Duration = Duration::from_millis(100);
 
     pub fn new() -> Self {
-        let menu = Menu::new();
-
         Self {
             should_exit: false,
-            active_scene: ActiveScene::Menu(menu),
+            active_scene: MainMenu::create(),
             areas: None,
+            difficulty: Difficulty::NOVICE,
         }
     }
 
@@ -121,11 +222,11 @@ impl App {
 
             if crossterm::event::poll(Self::TICK_TIME.saturating_sub(last_tick.elapsed()))? {
                 self.handle_event(crossterm::event::read()?);
-                if self.should_exit {
-                    break 'main_loop;
-                }
                 if let Some(result) = self.handle_scene_transition() {
                     return Ok(result);
+                }
+                if self.should_exit {
+                    break 'main_loop;
                 }
                 terminal.draw(|frame| self.draw(frame))?;
             }
@@ -133,27 +234,59 @@ impl App {
         Ok(GameResult::Terminated)
     }
 
-    // TODO: Save selected difficulty so going back from the minigame doesn't reset the cursor in
-    // the menu
     fn handle_scene_transition(&mut self) -> Option<GameResult> {
         match &self.active_scene {
-            ActiveScene::Menu(menu) => {
+            ActiveScene::MainMenu(menu) => {
                 if let Some(menu_result) = menu.should_exit() {
                     match menu_result {
                         MenuResult::Exit => self.exit(),
+                        MenuResult::Selected(selected_option) => match selected_option.as_str() {
+                            MainMenu::OPTION_PLAY => {
+                                self.active_scene = ActiveScene::Game(Game::new(self.difficulty))
+                            }
+                            MainMenu::OPTION_WORD_LENGTH => {
+                                self.active_scene =
+                                    WordLengthMenu::create(self.difficulty.word_length)
+                            }
+                            MainMenu::OPTION_WORD_COUNT => {
+                                self.active_scene =
+                                    WordCountMenu::create(self.difficulty.word_count)
+                            }
+                            _ => unreachable!(),
+                        },
+                    }
+                }
+            }
+            ActiveScene::WordLengthMenu(menu) => {
+                if let Some(menu_result) = menu.should_exit() {
+                    match menu_result {
+                        MenuResult::Exit => (),
                         MenuResult::Selected(selected_option) => {
-                            let difficulty = selected_option.parse::<Difficulty>().unwrap();
-                            self.active_scene = ActiveScene::Game(Game::new(difficulty));
+                            self.difficulty.word_length =
+                                WordLengthMenu::option_to_word_length(selected_option.as_str())
+                                    .unwrap()
                         }
                     }
+                    self.active_scene = MainMenu::create();
+                }
+            }
+            ActiveScene::WordCountMenu(menu) => {
+                if let Some(menu_result) = menu.should_exit() {
+                    match menu_result {
+                        MenuResult::Exit => (),
+                        MenuResult::Selected(selected_option) => {
+                            self.difficulty.word_count =
+                                WordCountMenu::option_to_word_count(selected_option.as_str())
+                                    .unwrap()
+                        }
+                    }
+                    self.active_scene = MainMenu::create();
                 }
             }
             ActiveScene::Game(game) => {
                 if let Some(game_result) = game.should_exit() {
                     match game_result {
-                        GameResult::Terminated => {
-                            self.active_scene = ActiveScene::Menu(Menu::new());
-                        }
+                        GameResult::Terminated => self.active_scene = MainMenu::create(),
                         GameResult::Hacked | GameResult::LockedOut => return Some(game_result),
                     }
                 }
